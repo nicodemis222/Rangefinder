@@ -1,15 +1,15 @@
-# MilDot Rangefinder — Theory of Operation
+# Rangefinder — Theory of Operation
 
 ## 1. System Architecture
 
-The MilDot Rangefinder implements a multi-source sensor fusion architecture organized into eight functional layers. Each layer communicates through published state and asynchronous data flow.
+The Rangefinder implements a **semantic source selection** architecture organized into eight functional layers. Instead of weighted-average fusion, a priority-based state machine selects ONE authoritative depth source per frame, with dual Kalman filters tracking foreground and background hypotheses independently.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  Layer 8: UI Presentation                                    │
-│  RangefinderView → HUDOverlayView → RangeDisplayView        │
-│  FFPReticleView(3 styles) → OperatorGuidanceView → Compass  │
-│  ConfidenceBadge → HoldoverIndicator → SettingsView         │
+│  RangefinderView → HUDOverlayView → BackgroundRangeChip    │
+│  FFPReticleView(3 styles) → StadiametricBracketOverlay     │
+│  OperatorGuidanceView → MapPiPView → SettingsView          │
 ├─────────────────────────────────────────────────────────────┤
 │  Layer 7: Operator Guidance                                  │
 │  OperatorGuidanceEngine (IMU stability + coaching hints)     │
@@ -17,15 +17,16 @@ The MilDot Rangefinder implements a multi-source sensor fusion architecture orga
 │  Layer 6: Output Processing                                  │
 │  BallisticsSolver → InclinationCorrector                     │
 ├─────────────────────────────────────────────────────────────┤
-│  Layer 5: Temporal Filtering                                 │
-│  DepthKalmanFilter → MotionAwareSmoother → Outlier Reject   │
+│  Layer 5: Temporal Filtering (Dual Kalman)                   │
+│  fgKalmanFilter + bgKalmanFilter → MotionAwareSmoother      │
+│  Source-switch reset → Outlier Reject (DEM bypass)           │
 ├─────────────────────────────────────────────────────────────┤
-│  Layer 4: Unified Depth Field (Fusion Engine)               │
-│  Terrain routing (DEM-primary) → scene-aware routing        │
-│  Source weights → outlier suppression → weighted average     │
+│  Layer 4: Semantic Source Selection (State Machine)          │
+│  semanticSelect(): Stadia > LiDAR > Object > DEM > Neural  │
+│  Primary + Background hypothesis → SemanticSourceDecision    │
 ├─────────────────────────────────────────────────────────────┤
 │  Layer 3: Depth Source Estimation                            │
-│  LiDAR │ Neural+Cal │ Geometric │ DEM Raycast │ Object Det │
+│  LiDAR │ Neural+Cal │ Geometric │ DEM │ Object │ Stadia    │
 ├─────────────────────────────────────────────────────────────┤
 │  Layer 2: Sensor Abstraction                                 │
 │  CameraManager │ InclinationManager │ LocationManager        │
@@ -42,27 +43,29 @@ The MilDot Rangefinder implements a multi-source sensor fusion architecture orga
 ARFrame (60 Hz)
   │
   ├─→ LiDAR depth map ──→ LiDARDepthProvider ──→ ┐
-  ├─→ Camera image ─────→ MetricDepthEstimator ──→ ├─→ UnifiedDepthField
-  │                        (15 Hz, CoreML)          │    sampleAtCrosshair()
-  ├─→ Calibration pairs → ContinuousCalibrator ──→ │         │
-  │                                                  │         ↓
-  ├─→ IMU pitch ────────→ GeometricEstimator ─────→ │    Fused Estimate
+  ├─→ Camera image ─────→ MetricDepthEstimator ──→ │
+  │                        (15 Hz, CoreML)          │
+  ├─→ Calibration pairs → ContinuousCalibrator ──→ │
+  │                                                  ├─→ UnifiedDepthField
+  ├─→ IMU pitch ────────→ GeometricEstimator ─────→ │    semanticSelect()
   │                                                  │         │
-  ├─→ GPS + heading ────→ DEMRaycastEstimator ────→ │         ↓
-  │                        (2 Hz, async)             │    DepthKalmanFilter
-  │                                                  │         │
-  └─→ Camera image ─────→ ObjectDetector ─────────→ ┘         ↓
-                           (5 Hz, CoreML+Vision)        MotionAwareSmoother
-                                                              │
-  IMU angular velocity ──→ OperatorGuidanceEngine             ↓
-   (30 Hz, gyroscope)      ├─→ StabilityLevel          InclinationCorrector
-                            ├─→ GuidanceHints                 │
-                            ├─→ ReadingLock                    ↓
-                            └─→ RespiratoryPause         RangeOutput ──→ feedRange()
-                                                              │            to Guidance
-                                                              ↓
-                                                     OperatorGuidanceView
-                                                     (StabilityBar + HintChips)
+  ├─→ GPS + heading ────→ DEMRaycastEstimator ────→ │    ┌────┴────┐
+  │                        (2 Hz, async)             │    ↓         ↓
+  ├─→ Camera image ─────→ ObjectDetector ─────────→ │  Primary  Background
+  │                        (5 Hz, CoreML+Vision)     │    │         │
+  └─→ User bracket ─────→ StadiametricInput ───────→ ┘    ↓         ↓
+                                                     fgKalman   bgKalman
+                                                        │         │
+  IMU angular velocity ──→ OperatorGuidanceEngine       ↓         ↓
+   (30 Hz, gyroscope)      ├─→ StabilityLevel     Inclination    ↓
+                            ├─→ GuidanceHints      Corrector  bgRange
+                            ├─→ ReadingLock            │
+                            └─→ RespiratoryPause       ↓
+                                                  RangeOutput ──→ feedRange()
+                                                       │            to Guidance
+                                                       ↓
+                                              OperatorGuidanceView
+                                              (StabilityBar + HintChips)
 ```
 
 ---
@@ -108,15 +111,16 @@ The calibrator maintains a rolling window of 50 (neural_depth, lidar_depth) pair
 - Confidence = R-squared of fit x sample completeness
 - Model type auto-detected via Pearson correlation (forced to inverse for DepthAnythingV2)
 
-**Confidence curve (distance-dependent):**
+**Confidence curve (distance-dependent, with 50m hard cap):**
 - 2–5m: 0.3 → 0.8 (ramping, LiDAR is better here)
 - 5–8m: 0.8 → 0.9 (near calibration data)
 - 8–15m: 0.9 (close to training range)
-- 15–30m: 0.9 → 0.75 (moderate extrapolation)
-- 30–50m: 0.75 → 0.55 (significant extrapolation)
-- 50–80m: 0.55 → 0.30 (unreliable)
-- 80–150m: 0.30 → 0.15 (deep extrapolation)
-- Beyond 150m: 0.10 (floor)
+- 15–25m: 0.9 → 0.70 (moderate extrapolation)
+- 25–40m: 0.70 → 0.45 (significant extrapolation)
+- 40–50m: 0.45 → 0.35 (approaching hard cap)
+- **≥ 50m: 0.0 (hard cap — `AppConfiguration.neuralHardCapMeters`)**
+
+The hard cap at 50m replaces the gradual fade to a 0.10 floor that existed in the original architecture. This prevents neural from silently contributing wrong estimates at ranges where inverse-depth noise amplification makes the readings unreliable.
 
 **Calibration quality modifier:** Applied on top of the distance curve. Fresh calibration (<30s) gets full quality. Quality decays slowly: 30–90s loses up to 15%, 90–300s loses up to 40%. Floor at 0.30 (never fully distrusted).
 
@@ -206,113 +210,93 @@ Detects known objects (people, vehicles, signs) in the camera image and computes
 
 ---
 
-## 3. Unified Depth Field (Fusion Engine)
+## 3. Semantic Source Selection Engine
 
-`UnifiedDepthField.swift` (689 lines) is the core of the system. It samples all available depth sources at the crosshair point and produces a single fused estimate with confidence.
+`UnifiedDepthField.swift` is the core of the system. It evaluates all available depth sources and selects ONE authoritative primary source per frame via the `semanticSelect()` priority chain, plus an independent background hypothesis.
 
-### 3.1 Source Sampling
-
-Each frame, the fusion engine queries all available sources at screen center (0.5, 0.5). Each source produces a distance estimate and a weight:
+### 3.1 SemanticSourceDecision Enum
 
 ```
-weight_i = distanceCurve_i(distance) x sourceSpecificConfidence_i
+lidarPrimary    — LiDAR selected (close range, <8m)
+objectPrimary   — Object detection selected (known-size pinhole)
+demPrimary      — DEM ray-cast selected (terrain target)
+neuralPrimary   — Neural depth selected (<50m, calibrated)
+geometricPrimary — Geometric ground-plane selected (fallback)
+stadiametric    — User manual bracket input (highest priority)
+none            — No valid source
 ```
 
-Sources with weight below 0.01 are excluded.
+### 3.2 Priority Chain
 
-### 3.2 Terrain Routing (DEM-Primary)
+The `semanticSelect()` method evaluates sources in strict priority order. Each level is evaluated only if all higher-priority sources fail:
 
-Before scene-aware routing or weighted fusion, the engine checks whether the DEM ray-cast should be the authoritative answer. This short-circuits the entire fusion pipeline for terrain targets.
+1. **Stadiametric** — If `stadiametricInput` is set with valid pixel size, return directly. This is user-explicit and overrides all sensor sources.
 
-**Decision logic:**
-1. A DEM entry exists in the source list with weight > 0.15
-2. No object detection entry exists with weight > 0.05 (no discrete object at crosshair)
+2. **LiDAR** — If LiDAR depth is valid, < 8m, and confidence is high. Authoritative for close range. Background: DEM estimate if available.
 
-When both conditions are met, the DEM reading is returned directly as the ranging answer. Other sources (neural, geometric, LiDAR) still appear in the depth zone bracket overlay as foreground context but do not dilute the terrain distance.
+3. **Object Detection** — If a known-size object is detected at the crosshair with adequate confidence. Background: DEM estimate.
 
-**Rationale:** For terrain targets (mountains, hillsides, ridgelines), the DEM ray-cast is the only source that correctly traces the path from observer through the terrain topology. Neural depth saturates due to inverse-depth compression (reads ~42m when terrain is 1600m away), geometric assumes flat ground, and LiDAR only sees nearby foreground objects. Treating DEM as one voice in a 5-source average produced systematically wrong results whenever foreground objects (rock walls, fences, vegetation) were visible.
+4. **DEM Ray-Cast** — If DEM estimate is available and no object is detected. The primary source for terrain targets (mountains, ridgelines). Background: neural or geometric estimate.
 
-**Confidence:** When terrain routing fires, the confidence is computed for DEM as a single source using the distance-aware `maxExpected` normalizer, with the ×0.85 single-source penalty at >100m.
+5. **Neural Depth** — If calibrated neural estimate is valid and < 50m (`AppConfiguration.neuralHardCapMeters`). The hard cap prevents unreliable extrapolation. Background: geometric estimate.
 
-**Uncertainty:** Computed from GPS accuracy and heading error: `sqrt(gpsAcc² + (5° × distance × π/180)²)`.
+6. **Geometric Ground-Plane** — Fallback using `D = h / tan(pitch)`. No background (lowest priority).
 
-### 3.3 Scene-Aware Confidence Routing
+### 3.3 Background Hypothesis
 
-Before fusion, the `SceneClassifier` analyzes the neural depth map to detect the scene type and route confidence accordingly:
+After selecting the primary source, `semanticSelect()` returns a secondary estimate from a different source type. The background provides the operator with alternate depth context:
 
-**SceneClassifier algorithm (runs every 3 frames):**
-1. Sample 5-point cross pattern at crosshair (center + 4 cardinal offsets)
-2. Sample 8x8 global grid (64 points)
-3. Compute statistics: center depth, global median, global max, coefficient of variation
-4. **Sky detection:** pitch above -5°, center near maximum depth, low variation across frame
-5. **Ground detection:** monotonic depth gradient (bottom-close, top-far), downward pitch, CoV < 0.35
-6. **Structure detection:** sharp depth discontinuity (>2x) in at least 8% of global sample pairs
+- **Primary: LiDAR** → Background: DEM (foreground object vs. terrain behind)
+- **Primary: Object** → Background: DEM
+- **Primary: DEM** → Background: neural or geometric (terrain vs. foreground)
+- **Primary: Neural** → Background: geometric
 
-**Confidence routing (when scene confidence > 0.5):**
-- **Sky:** neural weight set to zero (neural outputs meaningless max-depth for sky)
-- **Ground:** geometric weight boosted by 25% (capped at +0.15) because ground-plane model assumptions are validated
-- **Structure:** geometric weight suppressed by 60% because ground-plane model fails for vertical structures (buildings, trees)
+The background estimate is published via `@Published var backgroundDepth` and tracked by an independent Kalman filter in `RangingEngine`.
 
-### 3.4 Outlier Suppression
+### 3.4 Confidence & Uncertainty
 
-When 3 or more sources contribute:
-1. Compute median distance across all active sources
-2. Any source with distance > 2.5x from median is suppressed (weight set to 0)
-3. Prevents a single catastrophically wrong source from corrupting the fusion
+Confidence is computed per-source using `DepthSourceConfidence` curves, then normalized to account for the selected source's reliability at the measured distance.
 
-When exactly 2 sources remain:
-- Compute disagreement ratio = max/min distance
-- If ratio > 2.0: apply penalty `max(0.15, 1.0 - (ratio - 2.0) * 0.5)` to final confidence
-- Does not alter the fused distance, only the displayed confidence
+**Uncertainty:** Computed from the selected source's error model:
+- LiDAR: 2% of distance
+- Neural: 5–10% depending on distance and calibration quality
+- DEM: `sqrt(gpsAcc² + (5° × distance × π/180)²)`
+- Object: based on bounding box pixel uncertainty
+- Geometric: based on IMU pitch accuracy at the measured angle
 
-### 3.5 Weighted Average
+### 3.5 Bimodal Detection
 
-```
-fusedDepth = sum(weight_i x depth_i) / sum(weight_i)
-```
+A log-scale histogram analyzer detects bimodal depth distributions (near foreground + far terrain):
+- 30 bins spanning 3+ orders of magnitude
+- Peaks separated ≥2× in distance, each >10% of ROI pixels
+- Valley between peaks < 60% of smaller peak height
+- When bimodal, `isBimodal` flag enables relaxed outlier thresholds in far-target mode
 
-### 3.6 Confidence Computation
+### 3.6 Scene Classification (Retained)
 
-Raw confidence = `totalWeight / maxExpectedWeight(distance)`, where `maxExpectedWeight` varies by distance tier to account for how many sources are typically available:
-
-| Range | Max Expected Weight | Active Sources |
-|---|---|---|
-| 0–3m | 0.98 | LiDAR only |
-| 3–8m | 1.58 | LiDAR + neural |
-| 8–15m | 1.60 | Neural + geometric |
-| 15–50m | 1.85 | Neural + geometric + DEM ramp |
-| 50–100m | 2.20 | All four active |
-| 100–200m | 1.60 | DEM + object dominant |
-| 200–500m | 1.65 | DEM + object |
-| 500–1000m | 1.10 | DEM strong; object is bonus, not requirement |
-| 1000m+ | 0.95 | Extreme range: DEM alone yields decent confidence |
-
-**Lesson learned (maxExpected normalizer):** The original 500m+ normalizer was 1.35, assuming DEM (0.65) + Object (0.70) both fire at full strength. When only DEM fires (common at long range — object detection is opportunistic), displayed confidence drops to 30–40% despite accurate readings. Splitting 500m+ into two tiers (1.10 and 0.95) so DEM-only produces 54–60% confidence instead of 38–49%. This matches the measured < 7% error at these ranges.
-
-Multi-source agreement bonus: +15% when 2+ sources agree (within outlier threshold).
-Floor: 0.15 minimum confidence (always emit if any source is valid).
-DEM-only single-source penalty: ×0.85 when DEM is the sole source at >100m. 1M Monte Carlo showed DEM+Object corroboration produces 3–4× lower error than DEM-only; this penalty ensures displayed confidence reflects the higher uncertainty.
-Disagreement penalty applied last.
-
-### 3.7 Uncertainty Estimation
-
-**Single source:** scaled by distance tier (2% LiDAR, 5% mid-range, 10% long-range, 20% extreme).
-
-**Multiple sources:** weighted standard deviation:
-```
-variance = sum(weight_i x (depth_i - fused)^2) / sum(weight_i)
-uncertainty = sqrt(variance)
-```
+The depth-map scene classifier still operates at zero additional compute cost, informing future confidence decisions:
+- **Sky detection:** zeros neural candidacy (meaningless max-depth)
+- **Ground detection:** validates geometric model assumptions
+- **Structure detection:** suppresses geometric (vertical surfaces violate flat-ground model)
 
 ---
 
 ## 4. Temporal Processing Pipeline
 
-After the fusion engine produces a per-frame estimate, three sequential stages provide temporal stability.
+After the semantic selection engine produces per-frame primary and background estimates, dual temporal pipelines provide stability.
 
-### 4.1 Outlier Rejection (Ring Buffer Median)
+### 4.1 Dual Kalman Architecture
 
-A 5-frame ring buffer stores recent fused depth values. Each new measurement is compared against the buffer median. Distance-scaled deviation thresholds:
+`RangingEngine` maintains two independent Kalman filters:
+
+- **`fgKalmanFilter`** — tracks the primary (foreground) depth from `semanticSelect()`
+- **`bgKalmanFilter`** — tracks the background hypothesis independently
+
+**Source-switch reset:** When `semanticDecision` changes (e.g., NEURAL_PRIMARY → DEM_PRIMARY), the foreground Kalman filter is reset to prevent stale state contamination. The `previousSemanticDecision` is tracked for comparison. The background filter runs independently and is not affected by primary source switches.
+
+### 4.2 Outlier Rejection (Ring Buffer Median)
+
+A 5-frame ring buffer stores recent primary depth values. Each new measurement is compared against the buffer median. Distance-scaled deviation thresholds:
 
 | Distance | Max Allowed Deviation |
 |---|---|
@@ -321,13 +305,14 @@ A 5-frame ring buffer stores recent fused depth values. Each new measurement is 
 | 50–100m | 30% |
 | > 100m | 25% |
 
-Measurements exceeding the threshold are replaced by the buffer median. This prevents single-frame inverse-depth calibration spikes from corrupting the Kalman filter state.
+Measurements exceeding the threshold are replaced by the buffer median. This prevents single-frame spikes from corrupting the Kalman filter state.
 
 Exceptions:
-- When the motion state is "panning", the raw measurement passes through (the scene is genuinely changing).
-- **DEM-primary bypass:** When the fused estimate's source is `.demRaycast` (terrain routing fired), the outlier rejection accepts the DEM reading directly without median comparison. On large transitions (>2× ratio vs. buffer median), the ring buffer is cleared and the Kalman filter is reset to prevent the temporal pipeline from slowly tracking toward the old reading. This prevents the buffer median of ~42m (foreground obstacle) from blocking a correct 1600m terrain reading.
+- When the motion state is "panning", the raw measurement passes through
+- **DEM-primary bypass:** When the semantic decision is `.demPrimary`, outlier rejection accepts the DEM reading directly without median comparison. On large transitions (>2× ratio), the ring buffer is cleared and the foreground Kalman filter is reset.
+- **Far-target bimodal bypass:** When `targetPriority == .far` and bimodal detection is active, legitimate depth jumps >3× are allowed
 
-### 4.2 Kalman Filter
+### 4.3 Foreground Kalman Filter
 
 A 1D Kalman filter with state vector `[depth, velocity]` where velocity = d(depth)/dt.
 
@@ -626,9 +611,60 @@ Frame processing uses a `processingInFlight` flag to drop frames when the pipeli
 
 ---
 
-## 14. Monte Carlo Fusion Validation
+## 14. Stadiametric Manual Ranging
 
-The fusion algorithm is validated by a deterministic Monte Carlo simulator (`MonteCarloFusionTests.swift`) that replicates the full `UnifiedDepthField` fusion logic with synthetic sensor noise.
+### 14.1 Pinhole Formula
+
+When STADIA mode is active, the user adjusts a draggable bracket overlay to span a target of known size. The range is computed via the pinhole camera model:
+
+```
+R = (knownSize × focalLength) / pixelSize
+```
+
+Where:
+- `knownSize` = real-world target height in meters (user-configurable)
+- `focalLength` = camera focal length in pixels (~2160px for iPhone main camera)
+- `pixelSize` = pixel distance between top and bottom brackets
+
+### 14.2 Target Presets
+
+| Preset | Height (m) | Use Case |
+|---|---|---|
+| PERSON | 1.8 | Standing human (ANSUR II 50th percentile) |
+| VEHICLE | 1.5 | Standard sedan/SUV roof height |
+| DEER | 1.0 | White-tail deer shoulder height |
+| DOOR | 2.0 | Standard doorway |
+| FENCE POST | 1.2 | Typical fence post |
+| POWER POLE | 10.0 | Utility pole |
+| WINDOW | 1.0 | Standard window height |
+
+### 14.3 UI Implementation
+
+The `StadiametricBracketOverlay` provides two draggable horizontal amber lines with:
+- Center drag handles (30×6pt) for precise positioning
+- Dashed connecting line between brackets
+- Pixel distance label showing bracket span
+- 30pt hit target zones for easy touch interaction
+
+The bracket pixel distance feeds into `AppState.updateStadiametricInput()`, which creates a `StadiametricInput` struct and feeds it to `UnifiedDepthField.stadiametricInput`. Since stadiametric has the highest semantic priority, it overrides all sensor-based sources.
+
+---
+
+## 15. DEM Map Verification (MapPiP)
+
+When MAP mode is enabled and GPS is active, a 140×100pt satellite map overlay shows:
+- **User location** — blue dot at current GPS position
+- **DEM hit point** — red pin at the ray-cast terrain intersection coordinate
+- **Ray polyline** — amber line connecting user to hit point
+- **Satellite imagery** — MapKit `.imagery(elevation: .realistic)` style
+
+The MapPiP provides visual confirmation that the DEM ray-cast is hitting the expected terrain feature. Camera position auto-centers to fit both points with appropriate padding.
+
+---
+
+## 16. Monte Carlo Fusion Validation
+
+The semantic selection algorithm is validated by a deterministic Monte Carlo simulator (`MonteCarloFusionTests.swift`) that replicates the `UnifiedDepthField` semantic selection logic with synthetic sensor noise.
 
 ### 14.1 Test Architecture
 
@@ -641,14 +677,13 @@ The fusion algorithm is validated by a deterministic Monte Carlo simulator (`Mon
 - DEM: ±5% base, scaled by GPS accuracy (1× at 5m, 3× at 15m+) and heading accuracy
 - Object: ±10% base
 
-**Fusion Simulator:** Mirrors production `UnifiedDepthField` logic including:
-- **Terrain routing early-return** (DEM weight > 0.15, no object with weight > 0.05)
+**Fusion Simulator:** Mirrors production `UnifiedDepthField` semantic selection logic including:
+- **Semantic source selection priority chain** (Stadia > LiDAR > Object > DEM > Neural > Geometric)
+- **Neural hard cap at 50m** (confidence = 0.0 beyond `neuralHardCapMeters`)
 - Distance-dependent confidence curves from `DepthSourceConfidence`
-- Outlier suppression (>2.0× from median)
 - DEM-dominance rule (ratio > 1.5×, DEM > 40m → suppress neural)
 - Neural extrapolation penalty (beyond 15m calibration range)
-- `maxExpected` normalizer for confidence computation
-- Multi-source agreement bonus (+15%)
+- Confidence computation per selected source
 - DEM-only single-source confidence penalty (×0.85 at >100m)
 
 ### 14.2 Two-Tier Testing
@@ -702,7 +737,7 @@ With terrain routing active, the fusion simulator now short-circuits to DEM for 
 
 ---
 
-## 15. Future Work
+## 17. Future Work
 
 ### 15.1 Near-Term Refinements
 

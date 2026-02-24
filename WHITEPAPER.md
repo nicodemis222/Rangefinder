@@ -1,12 +1,12 @@
-# MilDot Rangefinder — Technical Whitepaper
+# Rangefinder — Technical Whitepaper
 
-## Multi-Source Depth Fusion for Mobile Rangefinding: From LiDAR to Terrain Ray-Casting
+## Semantic Source Selection for Mobile Rangefinding: From LiDAR to Terrain Ray-Casting
 
 ---
 
 ## Abstract
 
-We present a real-time depth estimation system for iOS that fuses five heterogeneous depth sources — LiDAR time-of-flight, neural monocular depth estimation, geometric ground-plane trigonometry, digital elevation model (DEM) ray-casting, and object-size pinhole ranging — into a unified depth field with confidence-weighted output from 0.3 to 2000 meters. The system addresses the fundamental challenge that no single depth source covers the full operational range with adequate accuracy: LiDAR saturates at 5m, neural models degrade beyond their calibration range, geometric models fail on sloped terrain, and DEM requires GPS. Our approach uses distance-dependent confidence curves with smooth overlap zones, scene-aware confidence routing via depth-map classification, outlier suppression via median statistics, and adaptive Kalman filtering with motion-dependent noise parameters. Monte Carlo testing across 10 distance bands (0.3–2000m) demonstrates mean error below 10% at all distances, with sub-5% error at ranges below 500m. A 1,000,000-sample exhaustive sweep (100K per band) validated zero catastrophic errors (>100%) and 4.89% global mean error, with percentile analysis revealing that GPS quality is the dominant accuracy predictor at long range. An IMU-based operator guidance engine provides real-time coaching (stability detection, respiratory pause capture windows, reading lock confirmation) modeled on military marksmanship doctrine (FM 23-10).
+We present a real-time depth estimation system for iOS that selects among six heterogeneous depth sources — LiDAR time-of-flight, neural monocular depth estimation, geometric ground-plane trigonometry, digital elevation model (DEM) ray-casting, object-size pinhole ranging, and user-directed stadiametric bracket ranging — using a priority-based semantic source selection state machine with multi-hypothesis tracking from 0.3 to 2000 meters. The system addresses the fundamental challenge that no single depth source covers the full operational range with adequate accuracy, and that averaging sources measuring fundamentally different things (foreground rock wall vs. background mountain) produces catastrophically wrong results. Our approach replaces weighted-average fusion with a deterministic priority chain: Stadiametric > LiDAR (< 8m) > Object Detection > DEM > Neural (< 50m hard cap) > Geometric. Dual Kalman filters independently track foreground and background depth hypotheses, with automatic filter reset on semantic source switches. A neural depth hard cap at 50m prevents unreliable inverse-depth extrapolation. Monte Carlo testing across 10 distance bands (0.3–2000m) demonstrates mean error below 10% at all distances with 269 unit tests across 19 test files. An IMU-based operator guidance engine provides real-time coaching (stability detection, respiratory pause capture windows, reading lock confirmation) modeled on military marksmanship doctrine (FM 23-10).
 
 ---
 
@@ -24,17 +24,22 @@ Accurate range estimation from a mobile device across 0–2000m faces a coverage
 | DEM ray-casting | 20–2000m | Requires GPS fix, heading accuracy |
 | Object detection | 20–1000m | Requires recognized objects in view |
 
-No weighted average of sources that individually produce wrong answers can produce a right answer. The key insight is that sources must overlap in their reliable zones so the fusion can gradually shift trust, and scene understanding must suppress sources whose assumptions are violated.
+No weighted average of sources that individually produce wrong answers can produce a right answer. Averaging sources that measure fundamentally different things — a rock wall at 2m (LiDAR) vs. a mountain at 1600m (DEM) — produces a catastrophically wrong 25m estimate regardless of confidence tuning.
 
 ### 1.2 Approach
 
-We define a confidence function `c_i(d)` for each source *i* that varies with distance *d*. The fused estimate at each frame is:
+We replace the weighted-average fusion architecture with a **semantic source selection** state machine. Instead of blending all sources, the system selects ONE authoritative primary source per frame via a deterministic priority chain:
 
 ```
-d_fused = sum(c_i * d_i) / sum(c_i)
+Priority: Stadiametric > LiDAR (<8m) > Object > DEM > Neural (<50m) > Geometric
 ```
 
-Where the confidence functions overlap smoothly (no hard handoff boundaries), are multiplied by source-specific accuracy factors, and are modulated by scene classification and outlier detection.
+A secondary "background hypothesis" from a different source is tracked independently via dual Kalman filters, providing the operator with context about alternate depth readings (e.g., foreground obstacle vs. terrain behind it). Key architectural decisions:
+
+1. **Neural hard cap at 50m** — inverse-depth noise amplification makes neural estimates unreliable beyond 50m; confidence drops to zero
+2. **Dual Kalman filters** — foreground and background tracked independently; filter resets on source switches
+3. **Stadiametric manual ranging** — user-directed bracket overlay using pinhole formula `R = (knownSize × focalLength) / pixelSize`
+4. **DEM map verification** — MapKit picture-in-picture showing ray-cast hit point on satellite imagery
 
 ---
 
@@ -97,7 +102,7 @@ With decay = 0.95 per second and a rolling window of 50 samples.
 sigma_d = scale * sigma_n / n^2 = (d^2 / scale) * sigma_n
 ```
 
-At 50m with scale approximately 10: sigma_d = 250 * sigma_n. At 200m: sigma_d = 4000 * sigma_n. This quadratic growth motivates the neural confidence decay curve that begins at 15m and reaches a floor of 0.10 beyond 150m.
+At 50m with scale approximately 10: sigma_d = 250 * sigma_n. At 200m: sigma_d = 4000 * sigma_n. This quadratic growth motivates the neural hard cap at 50m (`AppConfiguration.neuralHardCapMeters = 50.0`) — beyond this distance, neural confidence drops to exactly zero and the source is excluded from semantic selection.
 
 **Extrapolation risk:** Calibration is trained on 0.2–8m data. Beyond 8m, the affine model is extrapolating. The calibration quality modifier provides a 30-second full-confidence window after the last LiDAR pair, then decays to a floor of 0.30 over 5 minutes.
 
@@ -242,75 +247,76 @@ This ensures the Kalman gain decreases at long range, relying more on the consta
 
 ---
 
-## 3. Fusion Architecture
+## 3. Semantic Source Selection Architecture
 
-### 3.1 Confidence Curve Design
+### 3.1 Design Rationale
 
-The five confidence curves are designed with overlapping transitions. The key design constraint is that adjacent sources must overlap by at least 50% of each source's confidence peak within their handoff zone. This ensures the fusion never drops to zero confidence during a source transition.
+The original MilDot Rangefinder used weighted-average fusion across all sources. This fails catastrophically when sources measure fundamentally different things: LiDAR sees a rock wall at 2m, DEM sees terrain at 1600m, and the weighted average produces ~25m — wrong by 64×. No amount of confidence curve tuning can make an average of 2m and 1600m equal 1600m.
+
+The replacement architecture uses **semantic source selection**: a priority-based state machine (`semanticSelect()`) that picks ONE authoritative primary source per frame, plus an independent background hypothesis from a different source.
+
+### 3.2 Priority Chain (SemanticSourceDecision)
+
+The `semanticSelect()` method in `UnifiedDepthField` evaluates sources in strict priority order:
 
 ```
-Confidence
-1.0 ┤
-    │  LiDAR        Neural          DEM
-0.8 ┤  ██████     ███████████    ████████████
-    │  ███████   ████████████   █████████████
-0.6 ┤  ████████ █████████████  ██████████████
-    │   ████████████████████  ███████████████
-0.4 ┤    █████████████████   ████████████████
-    │     ███████████████   █████████████████
-0.2 ┤      █████████████   ██████████████████
-    │       ██████████    ███████████████████
-0.0 ┼───┬───┬───┬───┬───┬───┬───┬───┬───┬───→ Distance (m)
-    0   5  10  20  50 100 200 500 1k  2k
+1. STADIAMETRIC  — User-explicit manual bracket (highest priority)
+2. LIDAR_PRIMARY — Close range <8m, high confidence
+3. OBJECT_PRIMARY — Known-size pinhole ranging at crosshair
+4. DEM_PRIMARY   — Terrain target (no object detected)
+5. NEURAL_PRIMARY — Calibrated depth, <50m hard cap
+6. GEO_PRIMARY   — Ground-plane fallback
+7. NONE          — No valid source available
 ```
 
-### 3.2 Terrain Routing (DEM-Primary Short-Circuit)
+Each level is evaluated only if all higher-priority sources fail their gating conditions. The selected decision is published as `semanticDecision` and displayed in the HUD.
 
-Before scene-aware routing or weighted fusion, the engine evaluates whether the DEM ray-cast should be the sole ranging answer. When:
-1. A DEM source entry exists with fusion weight > 0.15
-2. No object detection entry exists with weight > 0.05
+### 3.3 Background Hypothesis
 
-the DEM reading is returned directly, bypassing all subsequent fusion stages. This implements the insight that for terrain targets (mountains, hillsides, ridgelines), the DEM ray-cast traces the correct path from observer through terrain topology, while neural/geometric sources see only foreground obstacles.
+After selecting the primary source, `semanticSelect()` returns a secondary "background" estimate from a different source type. This provides the operator with alternate depth context:
 
-**Key scenario:** Observer at 1000m altitude looking across a rock wall (2–9m) toward a mountain ridge at 1600m. Without terrain routing, neural (saturated at ~42m), LiDAR (reads 2m rock wall), and geometric (reads 10m based on pitch) outvote DEM (reads 1600m correctly) in the weighted average, producing a catastrophically wrong reading of ~25m. With terrain routing, the 1600m DEM reading is returned directly.
+- **LiDAR primary** → DEM as background (foreground object vs. terrain behind)
+- **Object primary** → DEM as background
+- **DEM primary** → Neural or geometric as background (terrain vs. foreground)
+- **Neural primary** → Geometric as background
 
-**Outlier rejection bypass:** When terrain routing fires, the temporal pipeline's ring buffer median filter would normally reject the DEM reading as an outlier (1600m vs. buffer median of ~42m). The `RangingEngine.rejectOutlier()` method detects `source == .demRaycast` and bypasses median comparison, accepting the DEM reading directly. On large transitions (>2× ratio), the ring buffer is cleared and the Kalman filter is reset.
+The background estimate is tracked by an independent Kalman filter (`bgKalmanFilter`) and displayed as a "BG" chip below the primary range readout.
 
-### 3.3 Scene-Aware Routing
+### 3.4 Neural Hard Cap (50m)
 
-The depth-map scene classifier operates at zero additional compute cost (analyzes the neural depth map already being produced). It samples a 5-point cross at the crosshair plus a 64-point global grid, computing:
+Neural depth estimation uses inverse-depth calibration that amplifies noise quadratically with distance. Beyond 50m, the error growth makes neural estimates unreliable. The hard cap is enforced at two levels:
 
-- **Coefficient of variation:** `CV = std(depths) / mean(depths)`. Sky has CV near 0.
-- **Depth gradient:** bottom-to-top monotonic increase indicates ground plane.
-- **Discontinuity ratio:** fraction of adjacent sample pairs with >2x depth difference.
+1. **DepthSourceConfidence.neural()**: returns 0.0 for distances >= 50m
+2. **semanticSelect()**: skips neural candidate when estimated distance >= `AppConfiguration.neuralHardCapMeters`
 
-Routing decisions when classifier confidence > 0.5:
+The 50m threshold was chosen based on analysis of inverse-depth noise amplification: at 50m with scale ~10, sigma_d = 250 × sigma_n — a 10× amplification from the 5m sweet spot.
 
-| Scene | Neural Weight | Geometric Weight | Rationale |
-|---|---|---|---|
-| SKY | x 0.0 | unchanged | Neural outputs meaningless max-depth |
-| GROUND | unchanged | x 1.25 | Ground-plane assumptions validated |
-| STRUCTURE | unchanged | x 0.40 | Vertical surfaces violate ground model |
-| UNKNOWN | unchanged | unchanged | No modification |
+### 3.5 Stadiametric Manual Ranging
 
-### 3.4 Outlier Suppression
+When the user activates STADIA mode, a draggable bracket overlay appears on screen. The user aligns top and bottom brackets with a target of known size. The pinhole formula computes range:
 
-**Three or more sources:** Compute median of all estimates. Any source deviating by more than 2.5x from the median is suppressed.
-
-Worked example at 91m on sloped terrain:
-- Geometric: 9.8m (suppressed: 9.3x from median 91m)
-- Neural: 35m (kept: 2.6x from median — borderline but below threshold relative to geometric+DEM median)
-- DEM: 91m (kept)
-
-After suppression: fused = (w_neural * 35 + w_DEM * 91) / (w_neural + w_DEM).
-
-**Two sources with high disagreement:** Disagreement penalty applied to confidence (not distance):
 ```
-ratio = max(d1, d2) / min(d1, d2)
-penalty = max(0.15, 1.0 - (ratio - 2.0) * 0.5)    if ratio > 2.0
+R = (knownSize × focalLength) / pixelSize
 ```
 
-This honestly signals uncertainty to the user without silently displaying a wrong answer.
+Where `knownSize` is configurable (presets: PERSON 1.8m, VEHICLE 1.5m, DEER 1.0m, DOOR 2.0m) and `pixelSize` is the pixel distance between brackets. Stadiametric input has the highest priority in semantic selection — it overrides all sensor-based sources.
+
+### 3.6 Dual Kalman Filters
+
+`RangingEngine` maintains two independent Kalman filters:
+
+- **`fgKalmanFilter`** — tracks the primary (foreground) depth estimate
+- **`bgKalmanFilter`** — tracks the background hypothesis
+
+When the `semanticDecision` changes (e.g., from NEURAL_PRIMARY to DEM_PRIMARY), the foreground Kalman filter is reset to prevent stale state contamination. The background filter runs independently and is not affected by primary source switches.
+
+### 3.7 Scene Classification (Retained)
+
+The depth-map scene classifier still operates at zero additional compute cost, analyzing the neural depth map for sky/ground/structure detection. In the semantic architecture, it informs future confidence decisions but does not directly modify source weights (the priority chain handles source selection).
+
+### 3.8 Bimodal Detection
+
+The system detects bimodal depth distributions (near foreground + far terrain) using log-scale histogram analysis. When bimodal conditions are detected (peaks separated ≥2× in distance, each covering >10% of ROI pixels), the `isBimodal` flag is published and the target priority chip shows an amber indicator. In far-target mode with bimodal detection, outlier rejection thresholds are relaxed to allow legitimate depth jumps.
 
 ---
 
@@ -514,7 +520,7 @@ Total pipeline latency: 25–50ms (neural inference dominates). The system maint
 
 ### 8.1 Unit Test Coverage
 
-243 tests across 17 test files verify:
+269 tests across 20 test files verify:
 
 - **Confidence curves:** Each source curve tested at multiple distance points for expected shape, boundary conditions, and decay rates
 - **Calibration:** Inverse and metric model detection, weighted least-squares fit accuracy, confidence computation, edge cases (single sample, zero neural depth)
@@ -526,9 +532,11 @@ Total pipeline latency: 25–50ms (neural inference dominates). The system maint
 - **Inclination correction:** Cosine correction at various angles, small-angle bypass, formatting
 - **Motion-aware smoothing:** Alpha adaptation by motion state, discontinuity detection, snap-through behavior
 - **Barometric altimeter:** Default state, altitude source selection, vertical accuracy ranges, DEM confidence boost
-- **Monte Carlo fusion:** Full-pipeline simulation with terrain routing across 10 distance bands, error validation, confidence distribution analysis
+- **Monte Carlo fusion:** Full-pipeline simulation with semantic selection across 10 distance bands, error validation, confidence distribution analysis
 - **Terrain routing:** DEM-primary decision logic, pitch guard thresholds, ray direction math, uncertainty computation, depth zone bracket disagreement detection, edge cases (indoor, poor GPS, upward pitch)
 - **Depth zone brackets:** DepthZoneOverlay struct, disagreement detection (>2× ratio), bracket activation, AppState integration
+- **Semantic selection:** Priority chain ordering, source switch Kalman reset, background hypothesis source differs from primary, DEM priority in far-target mode, neural hard cap enforcement
+- **Stadiametric ranging:** Pinhole formula at various ranges (10–3888m), zero-pixel edge case, target presets, focal length independence, pixel-error sensitivity analysis
 - **Ballistics solver:** Holdover values validated against published .308/5.56/6.5CM tables at 200–1000yd, hold direction logic, monotonicity, cross-caliber comparisons, metric mode, edge cases
 - **SRTM tile cache:** Tile parsing, elevation queries, bilinear interpolation, LRU cache eviction
 
@@ -642,19 +650,23 @@ Test patterns:
 
 | Metric | Value |
 |---|---|
-| Source files | 47 Swift files |
-| Source lines | ~28,000 |
-| Test files | 17 Swift files |
-| Test lines | ~4,800 |
-| Unit tests | 243 |
+| Source files | 52 Swift files |
+| Source lines | ~11,700 |
+| Test files | 20 Swift files |
+| Test lines | ~6,200 |
+| Total lines | ~17,900 |
+| Unit tests | 269 |
+| Depth sources | 6 (LiDAR, neural, geometric, DEM, object, stadiametric) |
 | ML models | 3 (depth, depth secondary, object detection) |
-| Frameworks | 14 Apple frameworks |
+| Frameworks | 14 Apple frameworks + MapKit |
 | Minimum iOS | 18.0 |
 | Swift version | 6.0 (strict concurrency) |
 | Build system | XcodeGen (project.yml) |
 | Target devices | iPhone with LiDAR (12 Pro+) |
 | Reticle styles | 3 (mil-dot, crosshair, rangefinder) |
 | Guidance hints | 14 types across 3 severity levels |
+| Selection architecture | Semantic source selection (priority state machine) |
+| Kalman filters | 2 (foreground + background hypothesis) |
 
 ---
 
@@ -719,3 +731,17 @@ Terrain routing implements this as an early-return that short-circuits the entir
 ### 12.8 Operator Technique Matters More Than Algorithm Tuning
 
 Research into military rangefinding doctrine (FM 23-10, Vectronix VECTOR manual, SIG KILO procedures) consistently emphasizes that operator technique — breathing, bracing, multiple readings — is the primary accuracy differentiator beyond the instrument's inherent capability. Adding real-time coaching based on IMU analysis addresses the human factor that no amount of algorithm optimization can fix.
+
+### 12.9 Source Selection vs. Source Averaging
+
+The most significant architectural lesson was that weighted-average fusion fails when sources measure fundamentally different physical quantities. Averaging a 2m rock wall (LiDAR/neural foreground) with 1600m terrain (DEM) produces ~25m — useless to the operator. The replacement semantic source selection architecture picks ONE authoritative source per frame based on a priority chain, which correctly returns 1600m when DEM is selected and 2m when LiDAR is selected. The operator sees both readings (primary + background hypothesis) and can make an informed decision.
+
+**Principle:** Averaging is appropriate when sources measure the same thing with different noise characteristics. It fails when sources measure different things entirely (foreground vs. terrain). The correct architecture for heterogeneous measurements is selection, not fusion.
+
+### 12.10 Neural Depth Hard Cap Prevents Silent Degradation
+
+Before the 50m hard cap, neural depth estimates gradually degraded beyond their calibration range (0.2–8m) but continued contributing to fusion with slowly decreasing weight. At 80m, the neural estimate might be 45m with 0.30 confidence — wrong enough to corrupt the fusion but confident enough to participate. The hard cap at 50m creates a clean boundary: neural is either authoritative (< 50m) or excluded (>= 50m). The intentional discontinuity at the boundary is preferable to smooth degradation that silently produces wrong answers.
+
+### 12.11 Dual Kalman Filters Enable Multi-Hypothesis Display
+
+A single Kalman filter tracking the "fused" estimate cannot simultaneously represent foreground and background depths. When the semantic selection switches from neural (45m foreground) to DEM (1600m terrain), the single filter slowly tracks toward the new value, displaying incorrect intermediate readings for several frames. Dual independent filters — one for the primary selection, one for the background hypothesis — solve this by resetting the foreground filter on source switches and maintaining the background estimate independently.

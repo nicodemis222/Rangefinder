@@ -1,10 +1,10 @@
-# MilDot Rangefinder — Instructions
+# Rangefinder — Instructions
 
 ## Overview
 
-MilDot Rangefinder is an iOS application that turns an iPhone into a multi-source digital rangefinder. It fuses LiDAR, neural depth estimation, geometric ground-plane ranging, DEM terrain ray-casting, and object-size ranging into a single unified depth field with confidence-weighted output from 0 to 2000 meters.
+Rangefinder is an iOS application that turns an iPhone into a multi-source digital rangefinder. It uses **semantic source selection** to choose the best depth source per frame from six available sources — LiDAR, neural depth estimation, geometric ground-plane ranging, DEM terrain ray-casting, object-size ranging, and user-directed stadiametric bracket ranging — with multi-hypothesis tracking from 0 to 2000 meters.
 
-The interface presents a configurable reticle overlay (mil-dot, crosshair, or rangefinder) on the live camera feed with real-time range readout, confidence indicators, source blend visualization, compass bearing, operator guidance coaching, inclination correction, and optional ballistic holdover computation.
+The interface presents a configurable reticle overlay (mil-dot, crosshair, or rangefinder) on the live camera feed with real-time range readout, confidence indicators, semantic source decision label, background hypothesis chip, source blend visualization, stadiametric bracket overlay, DEM map picture-in-picture, compass bearing, operator guidance coaching, inclination correction, and optional ballistic holdover computation.
 
 ---
 
@@ -84,7 +84,7 @@ xcodebuild test \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
 ```
 
-There are 243 unit tests covering all depth sources, confidence curves, Kalman filtering, calibration, scene classification, geometric estimation, DEM ray-casting, terrain routing, depth zone brackets, and Monte Carlo fusion validation.
+There are 269 unit tests covering all depth sources, semantic source selection, confidence curves, dual Kalman filtering, calibration, scene classification, geometric estimation, DEM ray-casting, stadiametric ranging, terrain routing, depth zone brackets, and Monte Carlo validation.
 
 ---
 
@@ -106,7 +106,7 @@ Rangefinder/
 │   ├── Logger.swift            os.Logger categories (12 subsystems)
 │   └── PerformanceMonitor.swift FPS and thermal tracking
 ├── Depth/                  Multi-source depth estimation
-│   ├── UnifiedDepthField.swift     Fusion engine (6 sources → 1 estimate)
+│   ├── UnifiedDepthField.swift     Semantic source selection state machine
 │   ├── MetricDepthEstimator.swift  CoreML DepthAnythingV2 wrapper
 │   ├── ContinuousCalibrator.swift  LiDAR→neural calibration (inverse depth)
 │   ├── GeometricRangeEstimator.swift Ground-plane D = h/tan(θ)
@@ -146,15 +146,18 @@ Rangefinder/
 │   ├── SRTMTileCache.swift         HGT tile parser + USGS EPQS fallback
 │   └── DEMRaycastEstimator.swift   Ray-terrain intersection algorithm
 └── UI/                     SwiftUI views
-    ├── RangefinderView.swift       Main camera + HUD view + compass bearing chip
-    ├── HUDOverlayView.swift        Tactical heads-up display overlay
-    ├── RangeDisplayView.swift      Primary range readout
-    ├── ConfidenceBadge.swift       Color-coded confidence indicator
-    ├── HoldoverIndicator.swift     Ballistic holdover display
-    ├── OperatorGuidanceView.swift  Stability bar + coaching hint chips
-    ├── SettingsView.swift          Configuration panel + reticle style picker
-    ├── TutorialView.swift          7-page tactical onboarding tutorial
-    └── Theme.swift                 MIL-STD-3009 color palette
+    ├── RangefinderView.swift              Main camera + HUD view + compass bearing
+    ├── HUDOverlayView.swift               Source blend bar + legend
+    ├── BackgroundRangeChip.swift          Background hypothesis "BG" chip
+    ├── StadiametricBracketOverlay.swift   Draggable bracket overlay for manual ranging
+    ├── MapPiPView.swift                   DEM hit point satellite map overlay
+    ├── RangeDisplayView.swift             Primary range readout
+    ├── ConfidenceBadge.swift              Color-coded confidence indicator
+    ├── HoldoverIndicator.swift            Ballistic holdover display
+    ├── OperatorGuidanceView.swift         Stability bar + coaching hint chips
+    ├── SettingsView.swift                 Config panel + stadiametric presets
+    ├── TutorialView.swift                 7-page tactical onboarding tutorial
+    └── Theme.swift                        MIL-STD-3009 color palette
 ```
 
 ---
@@ -172,11 +175,23 @@ On launch, the app displays a live camera feed with a configurable reticle cente
 - Source blend bar: visual breakdown of source weights (bottom zone)
 - **Depth zone brackets**: inner bracket = crosshair/fusion depth, outer bracket = DEM terrain depth. Brackets change color (amber/cyan) when disagreement is detected (>2× ratio between crosshair and DEM readings)
 
-**HUD Elements (Top Bar Chips):**
+**HUD Elements:**
+
+*Top Bar — Row 1 (core data chips):*
 - **MAG**: current magnification (0.5x–25x)
+- **TGT**: target priority mode (NEAR/FAR) — tappable toggle, amber indicator when bimodal
+- **Ballistics chip**: caliber + zero distance (when enabled, tappable for quick selection)
 - **HDG**: compass bearing + cardinal direction (e.g., 045°NE) — visible when GPS is active
 - **ELEV**: pitch angle with color coding by severity
-- **Ballistics chip**: caliber + zero distance (when enabled, tappable for quick caliber/zero selection)
+
+*Top Bar — Row 2 (mode toggles):*
+- **STADIA**: toggle stadiametric bracket overlay (amber when active)
+- **MAP**: toggle DEM map picture-in-picture (amber when active, requires GPS)
+
+*Bottom Zone:*
+- **Semantic decision label**: shows which source won (e.g., "DEM", "LIDAR", "NEURAL")
+- **BG chip**: background hypothesis range + source (e.g., "BG DEM 600 YDS")
+- **Source blend bar**: visual breakdown of active source weights + legend
 - **Holdover**: ballistic correction in mils (when enabled)
 
 **Operator Guidance (below range readout):**
@@ -200,22 +215,47 @@ Tap the menu icon (☰) to open settings:
 - **Reticle Color**: phosphor green, red, amber, purple (NVG/DAY/RED presets)
 - **Reticle Options**: line width, outline toggle; mil-dot style adds filled dots, hash marks, mil labels toggles
 - **Ballistics**: enable/disable, caliber selection (.308 Win, 5.56 NATO, 6.5 CM, .300 WM, .338 NM, .338 LM), zero distance
-- **Depth Sources**: individual enable/disable for geometric and DEM sources
+- **Stadiametric Ranging**: target height slider (0.3–12.0m), presets (PERSON, VEHICLE, DEER, DOOR) with active-state highlighting
+- **Terrain Ranging**: GPS status, altitude, DEM status, terrain data tile management
 - **System Info**: model status, GPS quality, barometer status, detection capabilities
 
 ### Depth Sources
 
-The app automatically selects and blends depth sources based on distance:
+The app uses **semantic source selection** — a priority-based state machine that picks ONE authoritative source per frame (not a weighted average):
 
-| Range | Primary Sources | Notes |
-|---|---|---|
-| 0–5m | LiDAR | Direct time-of-flight measurement |
-| 5–15m | Neural + LiDAR tail | Calibrated DepthAnythingV2 with LiDAR overlap |
-| 15–50m | Neural + Geometric | Calibrated neural extrapolation + ground-plane model |
-| 50–200m | **DEM (terrain routed)** or fusion | DEM is authoritative for terrain; fusion used when objects detected |
-| 200–2000m | **DEM (terrain routed)** + Object | GPS/terrain-based ranging; object detection corroborates when available |
+| Priority | Source | Range | When Selected |
+|---|---|---|---|
+| 1 | **Stadiametric** | Any | User activates STADIA mode and brackets a target |
+| 2 | **LiDAR** | 0–8m | Close range, high confidence |
+| 3 | **Object Detection** | 20–1000m | Known-size object detected at crosshair |
+| 4 | **DEM Ray-Cast** | 20–2000m | Terrain target, no object detected |
+| 5 | **Neural Depth** | 2–50m | Calibrated, hard-capped at 50m |
+| 6 | **Geometric** | 5–500m | Ground-plane fallback (D = h/tan(pitch)) |
 
-**Terrain Routing:** When GPS/DEM is available and no discrete object is detected at the crosshair, the DEM ray-cast answer is used directly — other sources are shown in the depth zone brackets but don't dilute the terrain distance. This is critical for scenarios like ranging to a mountain over a rock wall, where neural/LiDAR see the foreground obstacle but DEM correctly traces the terrain at 1600m.
+**Why not weighted average?** Averaging sources that measure fundamentally different things fails catastrophically. When LiDAR sees a rock wall at 2m and DEM sees terrain at 1600m, no weighted average can produce the correct answer. Semantic selection picks the right source for the scenario.
+
+**Background Hypothesis:** A second source provides an alternate reading (e.g., "BG DEM 600 YDS" when neural is primary). This gives the operator context about both foreground and terrain depths.
+
+**Neural Hard Cap (50m):** Neural depth estimation is excluded beyond 50m because inverse-depth noise amplification makes estimates unreliable at longer ranges.
+
+### Stadiametric Ranging
+
+Activate STADIA mode via the top bar toggle. A bracket overlay appears on screen:
+
+1. Select target type in Settings (PERSON 1.8m, VEHICLE 1.5m, DEER 1.0m, etc.)
+2. Drag the top and bottom brackets to align with the target's top and bottom
+3. Range is computed instantly: `R = (targetHeight × focalLength) / pixelSpan`
+
+Stadiametric input has the highest priority — it overrides all sensor-based sources.
+
+### Map Picture-in-Picture
+
+Activate MAP mode via the top bar toggle (requires GPS). A satellite map overlay shows:
+- Your position (blue dot)
+- DEM ray-cast hit point (red pin)
+- Connecting line (amber)
+
+This visually confirms the DEM ray is hitting the expected terrain feature.
 
 ### Scene Classification
 
@@ -314,7 +354,7 @@ When enabled, the ballistics solver computes holdover for the selected caliber u
 
 ## Test Coverage
 
-243 unit tests across 17 test files:
+269 unit tests across 20 test files:
 
 | Test File | Count | Coverage Area |
 |---|---|---|
@@ -322,12 +362,12 @@ When enabled, the ballistics solver computes holdover for the selected caliber u
 | ContinuousCalibratorTests | — | LiDAR→neural calibration, inverse depth fitting |
 | DEMRaycastEstimatorTests | — | Ray-terrain intersection, confidence tiers |
 | DepthKalmanFilterTests | — | Kalman predict/update, motion adaptation |
-| DepthSourceConfidenceTests | — | All 5 confidence curves, calibration quality, DEM long-range |
+| DepthSourceConfidenceTests | — | All 6 confidence curves, neural hard cap at 50m, DEM long-range |
 | DisagreementPenaltyTests | — | Source outlier suppression logic |
 | GeometricRangeEstimatorTests | — | Ground-plane model, slope penalty |
 | IMUDepthPredictorTests | — | Motion-based prediction |
 | InclinationCorrectorTests | — | Cosine correction, angle formatting |
-| MonteCarloFusionTests | 10 | Full-pipeline fusion with terrain routing: 10K CI smoke test + 1M deep analysis across 10 distance bands (0.3–2000m), 5.2% mean error |
+| MonteCarloFusionTests | 10 | Full-pipeline semantic selection: 10K CI smoke test + 1M deep analysis across 10 distance bands (0.3–2000m) |
 | BallisticsSolverTests | 16 | G1 holdover vs published tables (.308/5.56/6.5CM), hold direction, monotonicity, cross-caliber, metric, edge cases |
 | TerrainRoutingTests | 14 | DEM-primary terrain routing, pitch guard, ray direction math, uncertainty, depth zone brackets, edge cases |
 | DepthZoneBracketTests | 23 | DepthZoneOverlay struct, disagreement detection, bracket activation, formatting, AppState integration |
@@ -335,3 +375,6 @@ When enabled, the ballistics solver computes holdover for the selected caliber u
 | ReticleGeometryTests | — | Mil-to-pixel conversion |
 | SceneClassifierTests | 11 | Sky/ground/structure detection, rate limiting |
 | SRTMTileCacheTests | — | SRTM tile parsing, elevation queries, caching |
+| **SemanticSelectionTests** | 14 | Priority chain ordering, source switch detection, DEM priority in far-target mode, background hypothesis, neural hard cap, DepthSource/RangeOutput enum changes |
+| **StadiametricRangingTests** | 10 | Pinhole formula at various ranges, zero-pixel edge case, target presets, focal length independence, pixel-error sensitivity |
+| SRTMDownloadTests | — | SRTM region manager, tile download |
