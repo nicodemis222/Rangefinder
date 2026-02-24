@@ -1,0 +1,63 @@
+name: Rangefinder
+options:
+  bundleIdPrefix: com.rangefinder
+  deploymentTarget:
+    iOS: "18.0"
+  xcodeVersion: "16.0"
+  minimumXcodeGenVersion: "2.38"
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: ""
+    SWIFT_VERSION: "6.0"
+    TARGETED_DEVICE_FAMILY: "1"  # iPhone only
+    INFOPLIST_KEY_UIStatusBarHidden: YES
+    INFOPLIST_KEY_UIRequiresFullScreen: YES
+    INFOPLIST_KEY_UILaunchScreen_Generation: YES
+    INFOPLIST_KEY_NSCameraUsageDescription: "Rangefinder uses the camera for AI-powered distance estimation."
+    INFOPLIST_KEY_NSMotionUsageDescription: "Used to measure device inclination for angle-corrected range."
+    INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Rangefinder uses your location for terrain-aware distance estimation via DEM ray-casting."
+    SUPPORTS_MACCATALYST: NO
+
+schemes:
+  Rangefinder:
+    build:
+      targets:
+        Rangefinder: all
+        RangefinderTests: [test]
+    test:
+      targets:
+        - RangefinderTests
+
+targets:
+  Rangefinder:
+    type: application
+    platform: iOS
+    sources:
+      - path: Rangefinder
+        excludes:
+          - "**/.DS_Store"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.rangefinder.app
+        PRODUCT_NAME: Rangefinder
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UIRequiredDeviceCapabilities: "arm64 arkit lidar"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_UISupportsDocumentBrowser: NO
+        SWIFT_STRICT_CONCURRENCY: complete
+
+  RangefinderTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: RangefinderTests
+        excludes:
+          - "**/.DS_Store"
+    dependencies:
+      - target: Rangefinder
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.rangefinder.tests
+        GENERATE_INFOPLIST_FILE: YES

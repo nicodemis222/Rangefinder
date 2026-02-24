@@ -1,0 +1,834 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		00071497A38F00298BA62245 /* BimodalTargetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCE3A17AA2A515EB5E0CFD0E /* BimodalTargetTests.swift */; };
+		0314308A7F42F380E86776C5 /* SniperScope_Detector.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = D61595350577E2AA67C94407 /* SniperScope_Detector.mlpackage */; };
+		036F57F987C874E3A91FBCFA /* DepthKalmanFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD963BD33EDA51BD911BC7AA /* DepthKalmanFilter.swift */; };
+		03E888A85E8D2CCFC03DBB76 /* ContinuousCalibratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFFB86EB4CA9989FDBE3E156 /* ContinuousCalibratorTests.swift */; };
+		05A7FAB7B93968CBFCA38413 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2DD9984519EBEF08205101B /* Logger.swift */; };
+		062A408E20837F439D9BFB7C /* SemanticSelectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5CD96ACC2D0CB1E55F2E04D /* SemanticSelectionTests.swift */; };
+		0F21629641B1C9C536878C42 /* DepthPro_Lite.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = 13FCF5D6C84F6E33BA34930E /* DepthPro_Lite.mlpackage */; };
+		10E04562517CE5815D73A356 /* ContinuousCalibrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E967CFA49ED5900ABD154FE /* ContinuousCalibrator.swift */; };
+		14B61782594ECE65A2CB65F4 /* HoldoverIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED35344BD90334679135FF54 /* HoldoverIndicator.swift */; };
+		171CD56BE2B93F895A0E30E3 /* IMUDepthPredictor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C2A7D0EE1931DACCD843083 /* IMUDepthPredictor.swift */; };
+		186294C353A6DB8B69BB7F14 /* MetricDepthEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F626FB25C65ACBFAADD5663 /* MetricDepthEstimator.swift */; };
+		1965B66355C98207E3D22979 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC3084893C947EAAAE9C12EB /* Theme.swift */; };
+		1DB3BCDEEB37BBD101C89175 /* ReticleConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF8861E29CC0B4668E7F8C7 /* ReticleConfiguration.swift */; };
+		1E310B5A1CC24A566256F1B9 /* DisagreementPenaltyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA449D3EADEDB72A52E553DF /* DisagreementPenaltyTests.swift */; };
+		1F34BD278C8AD7E5CA86F4CA /* OperatorGuidanceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39694E796327803712092184 /* OperatorGuidanceEngine.swift */; };
+		2500B2346F6D152009D94B00 /* RangefinderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D82FBFE2FFA8A36D6EC6923C /* RangefinderView.swift */; };
+		27A1E8FEB67C036B555406B4 /* MotionAwareSmoother.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10DA2A1A73FF9D4017697D87 /* MotionAwareSmoother.swift */; };
+		2D9F460487BE15A4ED3742E2 /* ReticleGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF53A389BDF937C514CDDB5C /* ReticleGeometryTests.swift */; };
+		3D2D2C28135D7ED0D816CF4A /* DepthKalmanFilterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F8ED84318E6196A32D64E42 /* DepthKalmanFilterTests.swift */; };
+		42588C251FEB932331B40974 /* Configuration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B081E3470EF230871AEE868 /* Configuration.swift */; };
+		436FC15D5C4E61720249752F /* InclinationCorrectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E8DE7407ADDFCBDB92BD943 /* InclinationCorrectorTests.swift */; };
+		4DA21E4F86474BFD2435D3D7 /* LiDARDepthProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A0C1561834796EF549BDAA /* LiDARDepthProvider.swift */; };
+		4F395992745D7C910091EF03 /* UnifiedDepthField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01DD2C648012046BBC297079 /* UnifiedDepthField.swift */; };
+		52365BE05D329733EDCD62CA /* SRTMTileCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 321F8752C585E618AF93172B /* SRTMTileCache.swift */; };
+		5C5D4B72F28E97EED8FA20D8 /* MotionAwareSmootherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F287BB72C984C3DC37613047 /* MotionAwareSmootherTests.swift */; };
+		638E1D642663F266973B031A /* StadiametricRangingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AFA62DEC333AD5820182D69 /* StadiametricRangingTests.swift */; };
+		67E0E1261A58F55E110D865D /* SRTMTileCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C69C0B73EDF9AEA05CA8153 /* SRTMTileCacheTests.swift */; };
+		6CB1DC18F3E06D131B6385CD /* DepthSourceConfidenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4323B73911B5FBD30F5EDC5 /* DepthSourceConfidenceTests.swift */; };
+		7314515D9A598F95A7855DA2 /* ObjectDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06136289CE0032779A92D9E8 /* ObjectDetector.swift */; };
+		7BDC8ED109C9AEC52B77DEE5 /* ObjectRangeEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D17DF2E19172557229461C74 /* ObjectRangeEstimator.swift */; };
+		7E13412543A97C1EE47DA8A9 /* SceneClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9017B4794647C9873FEB5EE /* SceneClassifier.swift */; };
+		81282BC0D53CDCD2A48F1AA5 /* DepthZoneBracketTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44AE08802FEE902490AA9437 /* DepthZoneBracketTests.swift */; };
+		81C1B63E485B9B7033121564 /* RangeDisplayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B07A0A70C0672B16E00D2A1E /* RangeDisplayView.swift */; };
+		85A4D82B50B29BC6D47CD633 /* CameraIntrinsics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 069EFE446D4EDF04B5229DB2 /* CameraIntrinsics.swift */; };
+		877EB0959A8FFC562BEF90E9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 84415F6DC8BE0037E9D89416 /* Assets.xcassets */; };
+		88963512202D86DAD7EC1579 /* GeometricRangeEstimatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C28DB2D2E7C67287863D0EB /* GeometricRangeEstimatorTests.swift */; };
+		8B9DAD00F2DAE1A4037D1D28 /* MonteCarloFusionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D1A674384D72187F4BBD29A /* MonteCarloFusionTests.swift */; };
+		8C2F1582D77629615114B5CB /* SceneClassifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F73998DE42254B4AA4203639 /* SceneClassifierTests.swift */; };
+		8CC7784C949F8EDD998C7A1D /* InclinationCorrector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E83B551426CBFA365994B7D /* InclinationCorrector.swift */; };
+		90A6EF2479EE121E887D16ED /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D44A863B23E4E4DC32DBC8CD /* SettingsView.swift */; };
+		93F119506593EB059C6CDFC3 /* StadiametricBracketOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7983D27AADD70F4985A94857 /* StadiametricBracketOverlay.swift */; };
+		9E578D7B1B8C1C5338F676F5 /* HUDOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E63D3077D0F2503633E15F9 /* HUDOverlayView.swift */; };
+		9EB7BA9EB349CDA8D3D55B57 /* BackgroundRangeChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCFF0AA6847071C970917C95 /* BackgroundRangeChip.swift */; };
+		A6B30ADE77EA6849FE0FB10C /* KnownObjectDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AD8F6E9F8AF25744FE529CD /* KnownObjectDatabase.swift */; };
+		A73E1E3BB280C8546260A7AD /* BallisticsSolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17A421AC6DD8AF53FCAEF9E0 /* BallisticsSolverTests.swift */; };
+		A764D7F4028E066197A9A764 /* OperatorGuidanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87DA22642114FFDED3742FFB /* OperatorGuidanceView.swift */; };
+		A8FEFC7C51DFE51CC06177C2 /* DEMRaycastEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EEEBE83040B2163C4D0BFE9 /* DEMRaycastEstimator.swift */; };
+		A938530246CA5285A8339E9C /* IMUDepthPredictorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C7F636AF8F0AF422FC8EE1D /* IMUDepthPredictorTests.swift */; };
+		A9ACAAC4AFA609558CE03E5E /* BallisticsSolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = F36A04B305C1107646754AEF /* BallisticsSolver.swift */; };
+		B0FDA59DE2F647B1B9718280 /* ConfidenceBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE9758DC799E7EABA377336C /* ConfidenceBadge.swift */; };
+		B3647739263980B33236B0D0 /* CameraPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F58D836E1BCE7A4E47D26CF4 /* CameraPreviewView.swift */; };
+		B4549D4248F034CAB30FC00F /* ReticleGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B0BAB2CCB8E8555D84C47D /* ReticleGeometry.swift */; };
+		B697223DF9680CC2129C00CF /* DepthSourceConfidence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D2163B28D700AAB017B8353 /* DepthSourceConfidence.swift */; };
+		B8632AC72D572EA9D5CD28E2 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 415DB21AB3EFA9FA918BE46D /* LocationManager.swift */; };
+		B919D9DBB64B8A24F73359A9 /* DepthAnythingV2SmallF16.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = F5C4F5EF9EB1A3E5BF37A66B /* DepthAnythingV2SmallF16.mlpackage */; };
+		BD89E9AA7867B2AFF3FC33BC /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB84D326739B4B020145B51E /* AppState.swift */; };
+		C0C57A3BE5FBC407ABC2ECAC /* TerrainRoutingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36FC82FB037BDB829FC7BC8C /* TerrainRoutingTests.swift */; };
+		C3BCDF23D22421FAB01E857C /* InclinationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 775A3C45908EA33B113ED1EB /* InclinationManager.swift */; };
+		C5D94DAE0B6FD958DA618574 /* Errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34E75E4241D674421EE4605C /* Errors.swift */; };
+		C660401B1765E2CD0192D922 /* ZoomController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89BA5740F3A62B1D88CBD45D /* ZoomController.swift */; };
+		C742BB1CFE682B2666C5AFC0 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77C05330BDE0A38F3F7EEDCD /* CameraManager.swift */; };
+		CA779994B45BC59560BBD7EE /* RangingTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64F46CD8C32CB8D9FE636064 /* RangingTypes.swift */; };
+		CC17AD949267AE81F1018EBF /* BarometricAltitudeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7F412E51AE17CC08ED8A11C /* BarometricAltitudeTests.swift */; };
+		D0B571E09B2FB1ADEA62954A /* TutorialView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19CDF20654C8AAD136617F6C /* TutorialView.swift */; };
+		D4128BFBC2CFD79280AB4EC6 /* RangingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8529FBC6DE7DC4D0C6E72D5 /* RangingEngine.swift */; };
+		D75EBAFC2C49D91C203666CA /* DEMRaycastEstimatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 995C9F23FD68FAD79A78408B /* DEMRaycastEstimatorTests.swift */; };
+		D77B3E472BF262F560ABAD85 /* CVPixelBuffer+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08D5B24E61D347D37111AFA7 /* CVPixelBuffer+Extensions.swift */; };
+		E05DF68A539E91DFC06AD170 /* SRTMRegionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F973E9C77D90E72BFA472B81 /* SRTMRegionManager.swift */; };
+		E17E0519A925C1D244473FE8 /* PerformanceMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E24DF3F600E03EF13CE05BF /* PerformanceMonitor.swift */; };
+		E22ED103517AEEF8EFE2D206 /* RangefinderApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF8A931DD3082846A26ECCF8 /* RangefinderApp.swift */; };
+		E56EF39A0927FA666AB4A156 /* SRTMDownloadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91C4BD4B37EB6B213F4508E3 /* SRTMDownloadView.swift */; };
+		E673E9D30AF8D598E27B25DD /* FFPReticleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A9AEEBBE440FFB8C8D318A7 /* FFPReticleView.swift */; };
+		EE38D93347DD068BE17C9D52 /* Measurement+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F61740BEF36F077A009DFF50 /* Measurement+Extensions.swift */; };
+		F037F91EF5074F3BEA29706A /* DepthTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0C4F3681C32C9BFCD838C4D /* DepthTypes.swift */; };
+		F6050568F97DD0967108654F /* MapPiPView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F291088E45895C5F373D18 /* MapPiPView.swift */; };
+		F942860AEBBA281E4140DFCD /* GeometricRangeEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A64DCA77EC66AEF2DFC93FDC /* GeometricRangeEstimator.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		BCBBD8DEE7DABDB4C273CDF0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8D8C6C14788198755AB43D27 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BB33661DE8F3C7138559F5B0;
+			remoteInfo = Rangefinder;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		01DD2C648012046BBC297079 /* UnifiedDepthField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedDepthField.swift; sourceTree = "<group>"; };
+		06136289CE0032779A92D9E8 /* ObjectDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObjectDetector.swift; sourceTree = "<group>"; };
+		069EFE446D4EDF04B5229DB2 /* CameraIntrinsics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraIntrinsics.swift; sourceTree = "<group>"; };
+		08D5B24E61D347D37111AFA7 /* CVPixelBuffer+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CVPixelBuffer+Extensions.swift"; sourceTree = "<group>"; };
+		0E24DF3F600E03EF13CE05BF /* PerformanceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceMonitor.swift; sourceTree = "<group>"; };
+		0E8DE7407ADDFCBDB92BD943 /* InclinationCorrectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InclinationCorrectorTests.swift; sourceTree = "<group>"; };
+		10DA2A1A73FF9D4017697D87 /* MotionAwareSmoother.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionAwareSmoother.swift; sourceTree = "<group>"; };
+		13FCF5D6C84F6E33BA34930E /* DepthPro_Lite.mlpackage */ = {isa = PBXFileReference; path = DepthPro_Lite.mlpackage; sourceTree = "<group>"; };
+		17A421AC6DD8AF53FCAEF9E0 /* BallisticsSolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BallisticsSolverTests.swift; sourceTree = "<group>"; };
+		19CDF20654C8AAD136617F6C /* TutorialView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TutorialView.swift; sourceTree = "<group>"; };
+		1AD8F6E9F8AF25744FE529CD /* KnownObjectDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnownObjectDatabase.swift; sourceTree = "<group>"; };
+		1E967CFA49ED5900ABD154FE /* ContinuousCalibrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContinuousCalibrator.swift; sourceTree = "<group>"; };
+		1F626FB25C65ACBFAADD5663 /* MetricDepthEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricDepthEstimator.swift; sourceTree = "<group>"; };
+		2C28DB2D2E7C67287863D0EB /* GeometricRangeEstimatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeometricRangeEstimatorTests.swift; sourceTree = "<group>"; };
+		2E63D3077D0F2503633E15F9 /* HUDOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDOverlayView.swift; sourceTree = "<group>"; };
+		321F8752C585E618AF93172B /* SRTMTileCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SRTMTileCache.swift; sourceTree = "<group>"; };
+		34E75E4241D674421EE4605C /* Errors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Errors.swift; sourceTree = "<group>"; };
+		36FC82FB037BDB829FC7BC8C /* TerrainRoutingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerrainRoutingTests.swift; sourceTree = "<group>"; };
+		39694E796327803712092184 /* OperatorGuidanceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperatorGuidanceEngine.swift; sourceTree = "<group>"; };
+		3EEEBE83040B2163C4D0BFE9 /* DEMRaycastEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DEMRaycastEstimator.swift; sourceTree = "<group>"; };
+		412B3F5488ADD4340775BF5E /* Rangefinder.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Rangefinder.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		415DB21AB3EFA9FA918BE46D /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
+		44AE08802FEE902490AA9437 /* DepthZoneBracketTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthZoneBracketTests.swift; sourceTree = "<group>"; };
+		4A9AEEBBE440FFB8C8D318A7 /* FFPReticleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FFPReticleView.swift; sourceTree = "<group>"; };
+		4D1A674384D72187F4BBD29A /* MonteCarloFusionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonteCarloFusionTests.swift; sourceTree = "<group>"; };
+		5C69C0B73EDF9AEA05CA8153 /* SRTMTileCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SRTMTileCacheTests.swift; sourceTree = "<group>"; };
+		64F46CD8C32CB8D9FE636064 /* RangingTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RangingTypes.swift; sourceTree = "<group>"; };
+		69F291088E45895C5F373D18 /* MapPiPView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapPiPView.swift; sourceTree = "<group>"; };
+		6D2163B28D700AAB017B8353 /* DepthSourceConfidence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthSourceConfidence.swift; sourceTree = "<group>"; };
+		6F8ED84318E6196A32D64E42 /* DepthKalmanFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthKalmanFilterTests.swift; sourceTree = "<group>"; };
+		7339FCFD7ECCC1B8A304D57D /* RangefinderTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = RangefinderTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		775A3C45908EA33B113ED1EB /* InclinationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InclinationManager.swift; sourceTree = "<group>"; };
+		77C05330BDE0A38F3F7EEDCD /* CameraManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraManager.swift; sourceTree = "<group>"; };
+		7983D27AADD70F4985A94857 /* StadiametricBracketOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StadiametricBracketOverlay.swift; sourceTree = "<group>"; };
+		7B081E3470EF230871AEE868 /* Configuration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Configuration.swift; sourceTree = "<group>"; };
+		7E83B551426CBFA365994B7D /* InclinationCorrector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InclinationCorrector.swift; sourceTree = "<group>"; };
+		84415F6DC8BE0037E9D89416 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		87DA22642114FFDED3742FFB /* OperatorGuidanceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperatorGuidanceView.swift; sourceTree = "<group>"; };
+		89BA5740F3A62B1D88CBD45D /* ZoomController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomController.swift; sourceTree = "<group>"; };
+		8AFA62DEC333AD5820182D69 /* StadiametricRangingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StadiametricRangingTests.swift; sourceTree = "<group>"; };
+		8C2A7D0EE1931DACCD843083 /* IMUDepthPredictor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IMUDepthPredictor.swift; sourceTree = "<group>"; };
+		91C4BD4B37EB6B213F4508E3 /* SRTMDownloadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SRTMDownloadView.swift; sourceTree = "<group>"; };
+		995C9F23FD68FAD79A78408B /* DEMRaycastEstimatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DEMRaycastEstimatorTests.swift; sourceTree = "<group>"; };
+		9C7F636AF8F0AF422FC8EE1D /* IMUDepthPredictorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IMUDepthPredictorTests.swift; sourceTree = "<group>"; };
+		A1B0BAB2CCB8E8555D84C47D /* ReticleGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReticleGeometry.swift; sourceTree = "<group>"; };
+		A5CD96ACC2D0CB1E55F2E04D /* SemanticSelectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticSelectionTests.swift; sourceTree = "<group>"; };
+		A64DCA77EC66AEF2DFC93FDC /* GeometricRangeEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeometricRangeEstimator.swift; sourceTree = "<group>"; };
+		A8529FBC6DE7DC4D0C6E72D5 /* RangingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RangingEngine.swift; sourceTree = "<group>"; };
+		AF8A931DD3082846A26ECCF8 /* RangefinderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RangefinderApp.swift; sourceTree = "<group>"; };
+		AFFB86EB4CA9989FDBE3E156 /* ContinuousCalibratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContinuousCalibratorTests.swift; sourceTree = "<group>"; };
+		B07A0A70C0672B16E00D2A1E /* RangeDisplayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RangeDisplayView.swift; sourceTree = "<group>"; };
+		B0C4F3681C32C9BFCD838C4D /* DepthTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthTypes.swift; sourceTree = "<group>"; };
+		B3A0C1561834796EF549BDAA /* LiDARDepthProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiDARDepthProvider.swift; sourceTree = "<group>"; };
+		B4323B73911B5FBD30F5EDC5 /* DepthSourceConfidenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthSourceConfidenceTests.swift; sourceTree = "<group>"; };
+		B9017B4794647C9873FEB5EE /* SceneClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneClassifier.swift; sourceTree = "<group>"; };
+		BA449D3EADEDB72A52E553DF /* DisagreementPenaltyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisagreementPenaltyTests.swift; sourceTree = "<group>"; };
+		BC3084893C947EAAAE9C12EB /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		BCE3A17AA2A515EB5E0CFD0E /* BimodalTargetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BimodalTargetTests.swift; sourceTree = "<group>"; };
+		CCFF0AA6847071C970917C95 /* BackgroundRangeChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundRangeChip.swift; sourceTree = "<group>"; };
+		CF53A389BDF937C514CDDB5C /* ReticleGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReticleGeometryTests.swift; sourceTree = "<group>"; };
+		D17DF2E19172557229461C74 /* ObjectRangeEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObjectRangeEstimator.swift; sourceTree = "<group>"; };
+		D44A863B23E4E4DC32DBC8CD /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		D61595350577E2AA67C94407 /* SniperScope_Detector.mlpackage */ = {isa = PBXFileReference; path = SniperScope_Detector.mlpackage; sourceTree = "<group>"; };
+		D82FBFE2FFA8A36D6EC6923C /* RangefinderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RangefinderView.swift; sourceTree = "<group>"; };
+		DD963BD33EDA51BD911BC7AA /* DepthKalmanFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthKalmanFilter.swift; sourceTree = "<group>"; };
+		DE9758DC799E7EABA377336C /* ConfidenceBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfidenceBadge.swift; sourceTree = "<group>"; };
+		ED35344BD90334679135FF54 /* HoldoverIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoldoverIndicator.swift; sourceTree = "<group>"; };
+		F287BB72C984C3DC37613047 /* MotionAwareSmootherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionAwareSmootherTests.swift; sourceTree = "<group>"; };
+		F2DD9984519EBEF08205101B /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
+		F36A04B305C1107646754AEF /* BallisticsSolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BallisticsSolver.swift; sourceTree = "<group>"; };
+		F58D836E1BCE7A4E47D26CF4 /* CameraPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreviewView.swift; sourceTree = "<group>"; };
+		F5C4F5EF9EB1A3E5BF37A66B /* DepthAnythingV2SmallF16.mlpackage */ = {isa = PBXFileReference; path = DepthAnythingV2SmallF16.mlpackage; sourceTree = "<group>"; };
+		F61740BEF36F077A009DFF50 /* Measurement+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Measurement+Extensions.swift"; sourceTree = "<group>"; };
+		F73998DE42254B4AA4203639 /* SceneClassifierTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneClassifierTests.swift; sourceTree = "<group>"; };
+		F7F412E51AE17CC08ED8A11C /* BarometricAltitudeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarometricAltitudeTests.swift; sourceTree = "<group>"; };
+		F973E9C77D90E72BFA472B81 /* SRTMRegionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SRTMRegionManager.swift; sourceTree = "<group>"; };
+		FB84D326739B4B020145B51E /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		FCF8861E29CC0B4668E7F8C7 /* ReticleConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReticleConfiguration.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		1CB382489F358DF21F3E6598 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				7B081E3470EF230871AEE868 /* Configuration.swift */,
+				34E75E4241D674421EE4605C /* Errors.swift */,
+				F2DD9984519EBEF08205101B /* Logger.swift */,
+				0E24DF3F600E03EF13CE05BF /* PerformanceMonitor.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		338A3408BEF6C85779382ECF /* Sensors */ = {
+			isa = PBXGroup;
+			children = (
+				775A3C45908EA33B113ED1EB /* InclinationManager.swift */,
+				415DB21AB3EFA9FA918BE46D /* LocationManager.swift */,
+			);
+			path = Sensors;
+			sourceTree = "<group>";
+		};
+		5346DAA4BD269293952C4FF7 /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				08D5B24E61D347D37111AFA7 /* CVPixelBuffer+Extensions.swift */,
+				F61740BEF36F077A009DFF50 /* Measurement+Extensions.swift */,
+			);
+			path = Extensions;
+			sourceTree = "<group>";
+		};
+		584EE150BAD79741F2808330 /* Rangefinder */ = {
+			isa = PBXGroup;
+			children = (
+				D9A355C69C522948EFB98690 /* App */,
+				B1A738A4856C89435AA94629 /* Camera */,
+				1CB382489F358DF21F3E6598 /* Core */,
+				82A47DA65C8DF9EC93F2D888 /* Depth */,
+				5346DAA4BD269293952C4FF7 /* Extensions */,
+				C009F50E6ADFA85FAA4CCD4B /* Models */,
+				C06005460D77BE93944FEA0E /* ObjectDetection */,
+				AA311A52A6CF83AD8F568E57 /* Prediction */,
+				6853FC19706645CB9D34403B /* Ranging */,
+				A24B258282951EFEFF6E7263 /* Resources */,
+				8369AC5898F006F651E6CAE5 /* Reticle */,
+				338A3408BEF6C85779382ECF /* Sensors */,
+				6BF044C1313112C3153CB886 /* Terrain */,
+				9853BDD000B6764F9B0E71EA /* UI */,
+			);
+			path = Rangefinder;
+			sourceTree = "<group>";
+		};
+		6095AFB855713DB4F2A4B7E1 = {
+			isa = PBXGroup;
+			children = (
+				584EE150BAD79741F2808330 /* Rangefinder */,
+				7BFFC3DEE753CACC5CDC575D /* RangefinderTests */,
+				9F004DCF02ECCEA7F071BCA3 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		6853FC19706645CB9D34403B /* Ranging */ = {
+			isa = PBXGroup;
+			children = (
+				F36A04B305C1107646754AEF /* BallisticsSolver.swift */,
+				7E83B551426CBFA365994B7D /* InclinationCorrector.swift */,
+				10DA2A1A73FF9D4017697D87 /* MotionAwareSmoother.swift */,
+				39694E796327803712092184 /* OperatorGuidanceEngine.swift */,
+				A8529FBC6DE7DC4D0C6E72D5 /* RangingEngine.swift */,
+				64F46CD8C32CB8D9FE636064 /* RangingTypes.swift */,
+			);
+			path = Ranging;
+			sourceTree = "<group>";
+		};
+		6BF044C1313112C3153CB886 /* Terrain */ = {
+			isa = PBXGroup;
+			children = (
+				3EEEBE83040B2163C4D0BFE9 /* DEMRaycastEstimator.swift */,
+				F973E9C77D90E72BFA472B81 /* SRTMRegionManager.swift */,
+				321F8752C585E618AF93172B /* SRTMTileCache.swift */,
+			);
+			path = Terrain;
+			sourceTree = "<group>";
+		};
+		7BFFC3DEE753CACC5CDC575D /* RangefinderTests */ = {
+			isa = PBXGroup;
+			children = (
+				17A421AC6DD8AF53FCAEF9E0 /* BallisticsSolverTests.swift */,
+				F7F412E51AE17CC08ED8A11C /* BarometricAltitudeTests.swift */,
+				BCE3A17AA2A515EB5E0CFD0E /* BimodalTargetTests.swift */,
+				AFFB86EB4CA9989FDBE3E156 /* ContinuousCalibratorTests.swift */,
+				995C9F23FD68FAD79A78408B /* DEMRaycastEstimatorTests.swift */,
+				6F8ED84318E6196A32D64E42 /* DepthKalmanFilterTests.swift */,
+				B4323B73911B5FBD30F5EDC5 /* DepthSourceConfidenceTests.swift */,
+				44AE08802FEE902490AA9437 /* DepthZoneBracketTests.swift */,
+				BA449D3EADEDB72A52E553DF /* DisagreementPenaltyTests.swift */,
+				2C28DB2D2E7C67287863D0EB /* GeometricRangeEstimatorTests.swift */,
+				9C7F636AF8F0AF422FC8EE1D /* IMUDepthPredictorTests.swift */,
+				0E8DE7407ADDFCBDB92BD943 /* InclinationCorrectorTests.swift */,
+				4D1A674384D72187F4BBD29A /* MonteCarloFusionTests.swift */,
+				F287BB72C984C3DC37613047 /* MotionAwareSmootherTests.swift */,
+				CF53A389BDF937C514CDDB5C /* ReticleGeometryTests.swift */,
+				F73998DE42254B4AA4203639 /* SceneClassifierTests.swift */,
+				A5CD96ACC2D0CB1E55F2E04D /* SemanticSelectionTests.swift */,
+				5C69C0B73EDF9AEA05CA8153 /* SRTMTileCacheTests.swift */,
+				8AFA62DEC333AD5820182D69 /* StadiametricRangingTests.swift */,
+				36FC82FB037BDB829FC7BC8C /* TerrainRoutingTests.swift */,
+			);
+			path = RangefinderTests;
+			sourceTree = "<group>";
+		};
+		82A47DA65C8DF9EC93F2D888 /* Depth */ = {
+			isa = PBXGroup;
+			children = (
+				1E967CFA49ED5900ABD154FE /* ContinuousCalibrator.swift */,
+				6D2163B28D700AAB017B8353 /* DepthSourceConfidence.swift */,
+				B0C4F3681C32C9BFCD838C4D /* DepthTypes.swift */,
+				A64DCA77EC66AEF2DFC93FDC /* GeometricRangeEstimator.swift */,
+				B3A0C1561834796EF549BDAA /* LiDARDepthProvider.swift */,
+				1F626FB25C65ACBFAADD5663 /* MetricDepthEstimator.swift */,
+				B9017B4794647C9873FEB5EE /* SceneClassifier.swift */,
+				01DD2C648012046BBC297079 /* UnifiedDepthField.swift */,
+			);
+			path = Depth;
+			sourceTree = "<group>";
+		};
+		8369AC5898F006F651E6CAE5 /* Reticle */ = {
+			isa = PBXGroup;
+			children = (
+				4A9AEEBBE440FFB8C8D318A7 /* FFPReticleView.swift */,
+				FCF8861E29CC0B4668E7F8C7 /* ReticleConfiguration.swift */,
+				A1B0BAB2CCB8E8555D84C47D /* ReticleGeometry.swift */,
+			);
+			path = Reticle;
+			sourceTree = "<group>";
+		};
+		9853BDD000B6764F9B0E71EA /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				CCFF0AA6847071C970917C95 /* BackgroundRangeChip.swift */,
+				DE9758DC799E7EABA377336C /* ConfidenceBadge.swift */,
+				ED35344BD90334679135FF54 /* HoldoverIndicator.swift */,
+				2E63D3077D0F2503633E15F9 /* HUDOverlayView.swift */,
+				69F291088E45895C5F373D18 /* MapPiPView.swift */,
+				87DA22642114FFDED3742FFB /* OperatorGuidanceView.swift */,
+				B07A0A70C0672B16E00D2A1E /* RangeDisplayView.swift */,
+				D82FBFE2FFA8A36D6EC6923C /* RangefinderView.swift */,
+				D44A863B23E4E4DC32DBC8CD /* SettingsView.swift */,
+				91C4BD4B37EB6B213F4508E3 /* SRTMDownloadView.swift */,
+				7983D27AADD70F4985A94857 /* StadiametricBracketOverlay.swift */,
+				BC3084893C947EAAAE9C12EB /* Theme.swift */,
+				19CDF20654C8AAD136617F6C /* TutorialView.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		9F004DCF02ECCEA7F071BCA3 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				412B3F5488ADD4340775BF5E /* Rangefinder.app */,
+				7339FCFD7ECCC1B8A304D57D /* RangefinderTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A24B258282951EFEFF6E7263 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				84415F6DC8BE0037E9D89416 /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		AA311A52A6CF83AD8F568E57 /* Prediction */ = {
+			isa = PBXGroup;
+			children = (
+				DD963BD33EDA51BD911BC7AA /* DepthKalmanFilter.swift */,
+				8C2A7D0EE1931DACCD843083 /* IMUDepthPredictor.swift */,
+			);
+			path = Prediction;
+			sourceTree = "<group>";
+		};
+		B1A738A4856C89435AA94629 /* Camera */ = {
+			isa = PBXGroup;
+			children = (
+				069EFE446D4EDF04B5229DB2 /* CameraIntrinsics.swift */,
+				77C05330BDE0A38F3F7EEDCD /* CameraManager.swift */,
+				F58D836E1BCE7A4E47D26CF4 /* CameraPreviewView.swift */,
+				89BA5740F3A62B1D88CBD45D /* ZoomController.swift */,
+			);
+			path = Camera;
+			sourceTree = "<group>";
+		};
+		C009F50E6ADFA85FAA4CCD4B /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				F5C4F5EF9EB1A3E5BF37A66B /* DepthAnythingV2SmallF16.mlpackage */,
+				13FCF5D6C84F6E33BA34930E /* DepthPro_Lite.mlpackage */,
+				D61595350577E2AA67C94407 /* SniperScope_Detector.mlpackage */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		C06005460D77BE93944FEA0E /* ObjectDetection */ = {
+			isa = PBXGroup;
+			children = (
+				1AD8F6E9F8AF25744FE529CD /* KnownObjectDatabase.swift */,
+				06136289CE0032779A92D9E8 /* ObjectDetector.swift */,
+				D17DF2E19172557229461C74 /* ObjectRangeEstimator.swift */,
+			);
+			path = ObjectDetection;
+			sourceTree = "<group>";
+		};
+		D9A355C69C522948EFB98690 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				FB84D326739B4B020145B51E /* AppState.swift */,
+				AF8A931DD3082846A26ECCF8 /* RangefinderApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		71A068D993E402B44A028FB6 /* RangefinderTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 43FE608C05B4FA2D2061FFCB /* Build configuration list for PBXNativeTarget "RangefinderTests" */;
+			buildPhases = (
+				EF6FA3DB5BA95EE3388CDFEC /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				63F203D9422814C427AC23E9 /* PBXTargetDependency */,
+			);
+			name = RangefinderTests;
+			packageProductDependencies = (
+			);
+			productName = RangefinderTests;
+			productReference = 7339FCFD7ECCC1B8A304D57D /* RangefinderTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		BB33661DE8F3C7138559F5B0 /* Rangefinder */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0904631EDDD6B7828C7C558D /* Build configuration list for PBXNativeTarget "Rangefinder" */;
+			buildPhases = (
+				44C68788EC841981925492EB /* Sources */,
+				87DE8D48E00F3B30D0AA8AFF /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Rangefinder;
+			packageProductDependencies = (
+			);
+			productName = Rangefinder;
+			productReference = 412B3F5488ADD4340775BF5E /* Rangefinder.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		8D8C6C14788198755AB43D27 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					71A068D993E402B44A028FB6 = {
+						DevelopmentTeam = "";
+					};
+					BB33661DE8F3C7138559F5B0 = {
+						DevelopmentTeam = "";
+					};
+				};
+			};
+			buildConfigurationList = 4808288399723D84E80E509A /* Build configuration list for PBXProject "Rangefinder" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 6095AFB855713DB4F2A4B7E1;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				BB33661DE8F3C7138559F5B0 /* Rangefinder */,
+				71A068D993E402B44A028FB6 /* RangefinderTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		87DE8D48E00F3B30D0AA8AFF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				877EB0959A8FFC562BEF90E9 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		44C68788EC841981925492EB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BD89E9AA7867B2AFF3FC33BC /* AppState.swift in Sources */,
+				9EB7BA9EB349CDA8D3D55B57 /* BackgroundRangeChip.swift in Sources */,
+				A9ACAAC4AFA609558CE03E5E /* BallisticsSolver.swift in Sources */,
+				D77B3E472BF262F560ABAD85 /* CVPixelBuffer+Extensions.swift in Sources */,
+				85A4D82B50B29BC6D47CD633 /* CameraIntrinsics.swift in Sources */,
+				C742BB1CFE682B2666C5AFC0 /* CameraManager.swift in Sources */,
+				B3647739263980B33236B0D0 /* CameraPreviewView.swift in Sources */,
+				B0FDA59DE2F647B1B9718280 /* ConfidenceBadge.swift in Sources */,
+				42588C251FEB932331B40974 /* Configuration.swift in Sources */,
+				10E04562517CE5815D73A356 /* ContinuousCalibrator.swift in Sources */,
+				A8FEFC7C51DFE51CC06177C2 /* DEMRaycastEstimator.swift in Sources */,
+				B919D9DBB64B8A24F73359A9 /* DepthAnythingV2SmallF16.mlpackage in Sources */,
+				036F57F987C874E3A91FBCFA /* DepthKalmanFilter.swift in Sources */,
+				0F21629641B1C9C536878C42 /* DepthPro_Lite.mlpackage in Sources */,
+				B697223DF9680CC2129C00CF /* DepthSourceConfidence.swift in Sources */,
+				F037F91EF5074F3BEA29706A /* DepthTypes.swift in Sources */,
+				C5D94DAE0B6FD958DA618574 /* Errors.swift in Sources */,
+				E673E9D30AF8D598E27B25DD /* FFPReticleView.swift in Sources */,
+				F942860AEBBA281E4140DFCD /* GeometricRangeEstimator.swift in Sources */,
+				9E578D7B1B8C1C5338F676F5 /* HUDOverlayView.swift in Sources */,
+				14B61782594ECE65A2CB65F4 /* HoldoverIndicator.swift in Sources */,
+				171CD56BE2B93F895A0E30E3 /* IMUDepthPredictor.swift in Sources */,
+				8CC7784C949F8EDD998C7A1D /* InclinationCorrector.swift in Sources */,
+				C3BCDF23D22421FAB01E857C /* InclinationManager.swift in Sources */,
+				A6B30ADE77EA6849FE0FB10C /* KnownObjectDatabase.swift in Sources */,
+				4DA21E4F86474BFD2435D3D7 /* LiDARDepthProvider.swift in Sources */,
+				B8632AC72D572EA9D5CD28E2 /* LocationManager.swift in Sources */,
+				05A7FAB7B93968CBFCA38413 /* Logger.swift in Sources */,
+				F6050568F97DD0967108654F /* MapPiPView.swift in Sources */,
+				EE38D93347DD068BE17C9D52 /* Measurement+Extensions.swift in Sources */,
+				186294C353A6DB8B69BB7F14 /* MetricDepthEstimator.swift in Sources */,
+				27A1E8FEB67C036B555406B4 /* MotionAwareSmoother.swift in Sources */,
+				7314515D9A598F95A7855DA2 /* ObjectDetector.swift in Sources */,
+				7BDC8ED109C9AEC52B77DEE5 /* ObjectRangeEstimator.swift in Sources */,
+				1F34BD278C8AD7E5CA86F4CA /* OperatorGuidanceEngine.swift in Sources */,
+				A764D7F4028E066197A9A764 /* OperatorGuidanceView.swift in Sources */,
+				E17E0519A925C1D244473FE8 /* PerformanceMonitor.swift in Sources */,
+				81C1B63E485B9B7033121564 /* RangeDisplayView.swift in Sources */,
+				E22ED103517AEEF8EFE2D206 /* RangefinderApp.swift in Sources */,
+				2500B2346F6D152009D94B00 /* RangefinderView.swift in Sources */,
+				D4128BFBC2CFD79280AB4EC6 /* RangingEngine.swift in Sources */,
+				CA779994B45BC59560BBD7EE /* RangingTypes.swift in Sources */,
+				1DB3BCDEEB37BBD101C89175 /* ReticleConfiguration.swift in Sources */,
+				B4549D4248F034CAB30FC00F /* ReticleGeometry.swift in Sources */,
+				E56EF39A0927FA666AB4A156 /* SRTMDownloadView.swift in Sources */,
+				E05DF68A539E91DFC06AD170 /* SRTMRegionManager.swift in Sources */,
+				52365BE05D329733EDCD62CA /* SRTMTileCache.swift in Sources */,
+				7E13412543A97C1EE47DA8A9 /* SceneClassifier.swift in Sources */,
+				90A6EF2479EE121E887D16ED /* SettingsView.swift in Sources */,
+				0314308A7F42F380E86776C5 /* SniperScope_Detector.mlpackage in Sources */,
+				93F119506593EB059C6CDFC3 /* StadiametricBracketOverlay.swift in Sources */,
+				1965B66355C98207E3D22979 /* Theme.swift in Sources */,
+				D0B571E09B2FB1ADEA62954A /* TutorialView.swift in Sources */,
+				4F395992745D7C910091EF03 /* UnifiedDepthField.swift in Sources */,
+				C660401B1765E2CD0192D922 /* ZoomController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EF6FA3DB5BA95EE3388CDFEC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A73E1E3BB280C8546260A7AD /* BallisticsSolverTests.swift in Sources */,
+				CC17AD949267AE81F1018EBF /* BarometricAltitudeTests.swift in Sources */,
+				00071497A38F00298BA62245 /* BimodalTargetTests.swift in Sources */,
+				03E888A85E8D2CCFC03DBB76 /* ContinuousCalibratorTests.swift in Sources */,
+				D75EBAFC2C49D91C203666CA /* DEMRaycastEstimatorTests.swift in Sources */,
+				3D2D2C28135D7ED0D816CF4A /* DepthKalmanFilterTests.swift in Sources */,
+				6CB1DC18F3E06D131B6385CD /* DepthSourceConfidenceTests.swift in Sources */,
+				81282BC0D53CDCD2A48F1AA5 /* DepthZoneBracketTests.swift in Sources */,
+				1E310B5A1CC24A566256F1B9 /* DisagreementPenaltyTests.swift in Sources */,
+				88963512202D86DAD7EC1579 /* GeometricRangeEstimatorTests.swift in Sources */,
+				A938530246CA5285A8339E9C /* IMUDepthPredictorTests.swift in Sources */,
+				436FC15D5C4E61720249752F /* InclinationCorrectorTests.swift in Sources */,
+				8B9DAD00F2DAE1A4037D1D28 /* MonteCarloFusionTests.swift in Sources */,
+				5C5D4B72F28E97EED8FA20D8 /* MotionAwareSmootherTests.swift in Sources */,
+				2D9F460487BE15A4ED3742E2 /* ReticleGeometryTests.swift in Sources */,
+				67E0E1261A58F55E110D865D /* SRTMTileCacheTests.swift in Sources */,
+				8C2F1582D77629615114B5CB /* SceneClassifierTests.swift in Sources */,
+				062A408E20837F439D9BFB7C /* SemanticSelectionTests.swift in Sources */,
+				638E1D642663F266973B031A /* StadiametricRangingTests.swift in Sources */,
+				C0C57A3BE5FBC407ABC2ECAC /* TerrainRoutingTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		63F203D9422814C427AC23E9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BB33661DE8F3C7138559F5B0 /* Rangefinder */;
+			targetProxy = BCBBD8DEE7DABDB4C273CDF0 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		22521C74133F1F90442AD6F5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIRequiredDeviceCapabilities = "arm64 arkit lidar";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportsDocumentBrowser = NO;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.rangefinder.app;
+				PRODUCT_NAME = Rangefinder;
+				SDKROOT = iphoneos;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		2E3E1C14B3CBC082D0ADF064 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.rangefinder.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Rangefinder.app/Rangefinder";
+			};
+			name = Debug;
+		};
+		ABBDC225C198477AD9B07679 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Rangefinder uses the camera for AI-powered distance estimation.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Rangefinder uses your location for terrain-aware distance estimation via DEM ray-casting.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Used to measure device inclination for angle-corrected range.";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIRequiresFullScreen = YES;
+				INFOPLIST_KEY_UIStatusBarHidden = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		BEFF9627EC16A8DD79730F35 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.rangefinder.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Rangefinder.app/Rangefinder";
+			};
+			name = Release;
+		};
+		F3756A67F36C28768E791157 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIRequiredDeviceCapabilities = "arm64 arkit lidar";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportsDocumentBrowser = NO;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.rangefinder.app;
+				PRODUCT_NAME = Rangefinder;
+				SDKROOT = iphoneos;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		FEC386C92A2762306378531D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Rangefinder uses the camera for AI-powered distance estimation.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Rangefinder uses your location for terrain-aware distance estimation via DEM ray-casting.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Used to measure device inclination for angle-corrected range.";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIRequiresFullScreen = YES;
+				INFOPLIST_KEY_UIStatusBarHidden = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0904631EDDD6B7828C7C558D /* Build configuration list for PBXNativeTarget "Rangefinder" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				22521C74133F1F90442AD6F5 /* Debug */,
+				F3756A67F36C28768E791157 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		43FE608C05B4FA2D2061FFCB /* Build configuration list for PBXNativeTarget "RangefinderTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2E3E1C14B3CBC082D0ADF064 /* Debug */,
+				BEFF9627EC16A8DD79730F35 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		4808288399723D84E80E509A /* Build configuration list for PBXProject "Rangefinder" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ABBDC225C198477AD9B07679 /* Debug */,
+				FEC386C92A2762306378531D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 8D8C6C14788198755AB43D27 /* Project object */;
+}
