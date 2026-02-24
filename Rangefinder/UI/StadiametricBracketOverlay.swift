@@ -92,8 +92,8 @@ struct StadiametricBracketOverlay: View {
                 .fill(Theme.milAmber)
                 .frame(width: 30, height: 6)
         }
-        .frame(maxWidth: .infinity)
-        .contentShape(Rectangle().size(width: .infinity, height: 30))
+        .frame(maxWidth: .infinity, minHeight: 30) // 30pt tall hit target for easy dragging
+        .contentShape(Rectangle())
     }
 
     // MARK: - Report

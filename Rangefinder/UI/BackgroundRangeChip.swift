@@ -18,6 +18,11 @@ struct BackgroundRangeChip: View {
     var body: some View {
         if backgroundRange.isValid {
             HStack(spacing: 4) {
+                // "BG" prefix to distinguish from primary
+                Text("BG")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundColor(Theme.milGreenDim.opacity(0.5))
+
                 // Source icon
                 Image(systemName: backgroundRange.primarySource.icon)
                     .font(.system(size: 9, weight: .medium))

@@ -87,9 +87,14 @@ struct RangefinderView: View {
 
                 Spacer()
 
-                // === BOTTOM ZONE: background chip + source blend ===
-                VStack(spacing: 6) {
-                    // Background hypothesis chip
+                // === BOTTOM ZONE: semantic label + background chip + source blend ===
+                VStack(spacing: 4) {
+                    // Semantic decision label (which source won)
+                    if appState.semanticDecision != .none {
+                        SemanticDecisionLabel(decision: appState.semanticDecision)
+                    }
+
+                    // Background hypothesis chip (alternate reading)
                     if appState.backgroundRange.isValid {
                         BackgroundRangeChip(
                             backgroundRange: appState.backgroundRange,
@@ -97,10 +102,10 @@ struct RangefinderView: View {
                         )
                     }
 
+                    // Source blend bar + legend
                     if appState.currentRange.isValid && !appState.currentRange.sourceWeights.isEmpty {
                         SourceBlendView(
-                            sourceWeights: appState.currentRange.sourceWeights,
-                            semanticDecision: appState.semanticDecision
+                            sourceWeights: appState.currentRange.sourceWeights
                         )
                         .padding(.horizontal, 60)
                         .shadow(color: .black.opacity(0.5), radius: 3)
@@ -122,7 +127,7 @@ struct RangefinderView: View {
                             headingDegrees: appState.headingDegrees
                         )
                         .padding(.trailing, 12)
-                        .padding(.bottom, 80)
+                        .padding(.bottom, 120)
                     }
                 }
             }
@@ -171,105 +176,115 @@ struct RangefinderView: View {
     // MARK: - Top Bar
 
     private var topBar: some View {
-        HStack(spacing: 8) {
-            // Magnification indicator
-            MilHUDChip {
-                HStack(spacing: 4) {
-                    Text("MAG")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundColor(Theme.milGreenDim)
-                    Text(zoomText)
-                        .font(.system(size: 13, weight: .medium, design: .monospaced))
-                }
-            }
-
-            // Target priority chip (Near/Far — tappable toggle)
-            targetPriorityChip
-
-            // Ballistics chip (only when enabled)
-            if appState.ballisticsSolver.isEnabled {
-                ballisticsChip
-            }
-
-            // Heading chip (compass bearing)
-            if appState.locationManager.hasValidFix {
+        VStack(spacing: 4) {
+            // Row 1: Core data chips
+            HStack(spacing: 8) {
+                // Magnification indicator
                 MilHUDChip {
                     HStack(spacing: 4) {
-                        Text("HDG")
+                        Text("MAG")
                             .font(.system(size: 10, weight: .bold, design: .monospaced))
                             .foregroundColor(Theme.milGreenDim)
-                        Text(headingText)
+                        Text(zoomText)
                             .font(.system(size: 13, weight: .medium, design: .monospaced))
                     }
                 }
-            }
 
-            // Stadiametric mode toggle
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    appState.toggleStadiametricMode()
-                }
-            } label: {
-                MilHUDChip {
-                    HStack(spacing: 3) {
-                        Image(systemName: "ruler")
-                            .font(.system(size: 10, weight: .medium))
-                        Text("STADIA")
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    }
-                    .foregroundColor(appState.isStadiametricMode ? Theme.milAmber : Theme.milGreenDim)
-                }
-            }
+                // Target priority chip (Near/Far — tappable toggle)
+                targetPriorityChip
 
-            // Map PiP toggle
-            if appState.locationManager.hasValidFix {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        appState.showMapPiP.toggle()
-                    }
-                } label: {
+                // Ballistics chip (only when enabled)
+                if appState.ballisticsSolver.isEnabled {
+                    ballisticsChip
+                }
+
+                // Heading chip (compass bearing)
+                if appState.locationManager.hasValidFix {
                     MilHUDChip {
-                        HStack(spacing: 3) {
-                            Image(systemName: "map")
-                                .font(.system(size: 10, weight: .medium))
-                            Text("MAP")
+                        HStack(spacing: 4) {
+                            Text("HDG")
                                 .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .foregroundColor(Theme.milGreenDim)
+                            Text(headingText)
+                                .font(.system(size: 13, weight: .medium, design: .monospaced))
                         }
-                        .foregroundColor(appState.showMapPiP ? Theme.milAmber : Theme.milGreenDim)
                     }
                 }
-            }
 
-            Spacer()
+                Spacer()
 
-            // Elevation indicator
-            MilHUDChip {
-                HStack(spacing: 4) {
-                    Text("ELEV")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundColor(Theme.milGreenDim)
-                    Text(InclinationCorrector.formatAngle(appState.pitchDegrees))
-                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                // Elevation indicator
+                MilHUDChip {
+                    HStack(spacing: 4) {
+                        Text("ELEV")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .foregroundColor(Theme.milGreenDim)
+                        Text(InclinationCorrector.formatAngle(appState.pitchDegrees))
+                            .font(.system(size: 13, weight: .medium, design: .monospaced))
+                    }
+                    .foregroundColor(pitchColor)
                 }
-                .foregroundColor(pitchColor)
+
+                // Settings — tactical menu icon
+                Button {
+                    appState.showSettings = true
+                } label: {
+                    Image(systemName: "line.3.horizontal")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Theme.milGreenDim)
+                        .frame(width: 34, height: 34)
+                        .background(
+                            RoundedRectangle(cornerRadius: Theme.hudCornerRadius)
+                                .fill(Theme.panelBackground)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: Theme.hudCornerRadius)
+                                        .stroke(Theme.hudBorder.opacity(0.6), lineWidth: Theme.borderWidth)
+                                )
+                        )
+                }
             }
 
-            // Settings — tactical menu icon
-            Button {
-                appState.showSettings = true
-            } label: {
-                Image(systemName: "line.3.horizontal")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(Theme.milGreenDim)
-                    .frame(width: 34, height: 34)
-                    .background(
-                        RoundedRectangle(cornerRadius: Theme.hudCornerRadius)
-                            .fill(Theme.panelBackground)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: Theme.hudCornerRadius)
-                                    .stroke(Theme.hudBorder.opacity(0.6), lineWidth: Theme.borderWidth)
-                            )
-                    )
+            // Row 2: Mode toggles (only when modes are available)
+            if appState.isStadiametricMode || appState.showMapPiP || appState.locationManager.hasValidFix {
+                HStack(spacing: 8) {
+                    // Stadiametric mode toggle
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            appState.toggleStadiametricMode()
+                        }
+                    } label: {
+                        MilHUDChip {
+                            HStack(spacing: 3) {
+                                Image(systemName: "ruler")
+                                    .font(.system(size: 10, weight: .medium))
+                                Text("STADIA")
+                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            }
+                            .foregroundColor(appState.isStadiametricMode ? Theme.milAmber : Theme.milGreenDim)
+                        }
+                    }
+
+                    // Map PiP toggle (only with GPS)
+                    if appState.locationManager.hasValidFix {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                appState.showMapPiP.toggle()
+                            }
+                        } label: {
+                            MilHUDChip {
+                                HStack(spacing: 3) {
+                                    Image(systemName: "map")
+                                        .font(.system(size: 10, weight: .medium))
+                                    Text("MAP")
+                                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                }
+                                .foregroundColor(appState.showMapPiP ? Theme.milAmber : Theme.milGreenDim)
+                            }
+                        }
+                    }
+
+                    Spacer()
+                }
             }
         }
     }

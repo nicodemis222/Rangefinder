@@ -223,16 +223,23 @@ struct SettingsView: View {
                         .tint(Theme.milGreen)
 
                         // Presets from AppConfiguration
-                        HStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 6) {
                             Text("PRESETS")
                                 .font(.system(size: 11, weight: .bold, design: .monospaced))
                                 .foregroundColor(Theme.milGreenDim)
-                            Spacer()
-                            ForEach(AppConfiguration.stadiametricTargetPresets.prefix(4), id: \.label) { preset in
-                                Button(preset.label) {
-                                    stadiametricTargetSize = preset.heightMeters
+
+                            // Use wrapping layout to avoid overflow on small screens
+                            let presets = AppConfiguration.stadiametricTargetPresets.prefix(4)
+                            HStack(spacing: 8) {
+                                ForEach(Array(presets), id: \.label) { preset in
+                                    Button {
+                                        stadiametricTargetSize = preset.heightMeters
+                                    } label: {
+                                        Text(preset.label)
+                                            .frame(maxWidth: .infinity)
+                                    }
+                                    .buttonStyle(MilPresetButton(isActive: abs(stadiametricTargetSize - preset.heightMeters) < 0.05))
                                 }
-                                .buttonStyle(MilPresetButton(isActive: false))
                             }
                         }
                     }
@@ -537,15 +544,16 @@ struct MilPresetButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 11, weight: .bold, design: .monospaced))
-            .foregroundColor(Theme.milGreen)
+            .foregroundColor(isActive ? .black : Theme.milGreen)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(
                 RoundedRectangle(cornerRadius: Theme.hudCornerRadius)
-                    .fill(Theme.panelBackground)
+                    .fill(isActive ? Theme.milGreen : Theme.panelBackground)
                     .overlay(
                         RoundedRectangle(cornerRadius: Theme.hudCornerRadius)
-                            .stroke(Theme.hudBorder.opacity(0.6), lineWidth: Theme.borderWidth)
+                            .stroke(isActive ? Theme.milGreen : Theme.hudBorder.opacity(0.6),
+                                    lineWidth: Theme.borderWidth)
                     )
             )
             .opacity(configuration.isPressed ? 0.6 : 1.0)

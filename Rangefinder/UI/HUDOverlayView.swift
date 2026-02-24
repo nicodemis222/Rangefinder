@@ -13,15 +13,9 @@ import SwiftUI
 
 struct SourceBlendView: View {
     let sourceWeights: [DepthSource: Float]
-    var semanticDecision: SemanticSourceDecision = .none
 
     var body: some View {
         VStack(spacing: 4) {
-            // Semantic decision label
-            if semanticDecision != .none {
-                SemanticDecisionLabel(decision: semanticDecision)
-            }
-
             // Blend bar
             SourceBlendBar(sourceWeights: sourceWeights)
                 .frame(height: 4)
