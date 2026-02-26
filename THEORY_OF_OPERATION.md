@@ -72,12 +72,12 @@ ARFrame (60 Hz)
 
 ## 2. Depth Sources
 
-### 2.1 LiDAR (0.3–10m)
+### 2.1 LiDAR (0.3–12m)
 
 The iPhone LiDAR scanner provides direct time-of-flight depth measurements via ARKit. The depth map and confidence map are extracted from each ARFrame.
 
 **Characteristics:**
-- Reliable range: 0.3–5m (sweet spot), usable to 8–10m
+- Reliable range: 0.3–5m (sweet spot), usable to 10–12m
 - Returns a dense depth map at camera resolution
 - Confidence map distinguishes high/medium/low quality pixels
 - Unaffected by lighting conditions
@@ -87,8 +87,9 @@ The iPhone LiDAR scanner provides direct time-of-flight depth measurements via A
 - 0.3–3m: 0.98 (peak — direct sensor measurement)
 - 3–5m: 0.98 → 0.70 (linear falloff)
 - 5–8m: 0.70 → 0.20 (rapid degradation)
-- 8–10m: 0.20 → 0.0 (tail, unreliable)
-- Beyond 10m: 0.0
+- 8–10m: 0.20 → 0.05 (tail, unreliable)
+- 10–12m: 0.05 → 0.0 (extended tail)
+- Beyond 12m: 0.0
 
 **Role in system:** Ground truth for neural model calibration. Primary ranging source within 5m. Feeds continuous calibration pairs to `ContinuousCalibrator`.
 
@@ -110,17 +111,19 @@ The calibrator maintains a rolling window of 50 (neural_depth, lidar_depth) pair
 - Exponential recency weighting: older samples decay by factor 0.95 per second
 - Confidence = R-squared of fit x sample completeness
 - Model type auto-detected via Pearson correlation (forced to inverse for DepthAnythingV2)
+- **No soft compression** — the calibration extrapolates naturally so distances up to 150m are not artificially squashed (compression cap removed in pipeline overhaul)
 
-**Confidence curve (distance-dependent, with 50m hard cap):**
+**Confidence curve (distance-dependent, with 150m hard cap):**
 - 2–5m: 0.3 → 0.8 (ramping, LiDAR is better here)
 - 5–8m: 0.8 → 0.9 (near calibration data)
 - 8–15m: 0.9 (close to training range)
 - 15–25m: 0.9 → 0.70 (moderate extrapolation)
-- 25–40m: 0.70 → 0.45 (significant extrapolation)
-- 40–50m: 0.45 → 0.35 (approaching hard cap)
-- **≥ 50m: 0.0 (hard cap — `AppConfiguration.neuralHardCapMeters`)**
+- 25–50m: 0.70 → 0.35 (significant extrapolation)
+- 50–100m: 0.35 → 0.15 (extended range, decaying)
+- 100–150m: 0.15 → 0.08 (approaching hard cap)
+- **≥ 150m: 0.0 (hard cap — `AppConfiguration.neuralHardCapMeters`)**
 
-The hard cap at 50m replaces the gradual fade to a 0.10 floor that existed in the original architecture. This prevents neural from silently contributing wrong estimates at ranges where inverse-depth noise amplification makes the readings unreliable.
+The hard cap at 150m (extended from the original 50m) allows neural to contribute at medium ranges where it can still provide useful signal, while preventing unreliable extrapolation at extreme range. The calibrator's compression cap was removed to allow natural extrapolation up to 150m.
 
 **Calibration quality modifier:** Applied on top of the distance curve. Fresh calibration (<30s) gets full quality. Quality decays slowly: 30–90s loses up to 15%, 90–300s loses up to 40%. Floor at 0.30 (never fully distrusted).
 
@@ -142,7 +145,7 @@ Uses the IMU pitch angle and known camera height to compute ground-plane distanc
 - 0.5–1°: 0.20–0.45 (significant uncertainty)
 - Below 0.5°: fading to near-zero
 
-**Slope risk penalty:** When pitch exceeds 3°, a multiplicative penalty is applied: `penalty = max(0.4, 1.0 - (pitch - 3.0) * 0.08)`. At 8.7° pitch, confidence drops from 0.85 to 0.46. This accounts for the fact that steep pitch angles usually indicate the user is looking downhill, not at a flat target 10m away.
+**Slope risk penalty:** When pitch exceeds 5°, a multiplicative penalty is applied in two stages: 5–12° ramps from 1.0 → 0.5 (`1.0 - (pitch - 5.0) * 0.0714`), and 12–20° ramps from 0.5 → 0.15, with a floor of 0.10 beyond 20°. At 8.7° pitch, confidence drops to ~0.74. The 5° threshold (relaxed from the original 3°) avoids penalizing gentle downward angles common in normal use, while the steeper decay beyond 12° aggressively suppresses geometric when the user is clearly on sloped terrain.
 
 **Confidence curve (distance-dependent fusion weight):**
 - Below 5m: 0.0 (LiDAR is better)
@@ -217,10 +220,10 @@ Detects known objects (people, vehicles, signs) in the camera image and computes
 ### 3.1 SemanticSourceDecision Enum
 
 ```
-lidarPrimary    — LiDAR selected (close range, <8m)
+lidarPrimary    — LiDAR selected (close range, <12m)
 objectPrimary   — Object detection selected (known-size pinhole)
 demPrimary      — DEM ray-cast selected (terrain target)
-neuralPrimary   — Neural depth selected (<50m, calibrated)
+neuralPrimary   — Neural depth selected (<150m, calibrated)
 geometricPrimary — Geometric ground-plane selected (fallback)
 stadiametric    — User manual bracket input (highest priority)
 none            — No valid source
@@ -232,13 +235,13 @@ The `semanticSelect()` method evaluates sources in strict priority order. Each l
 
 1. **Stadiametric** — If `stadiametricInput` is set with valid pixel size, return directly. This is user-explicit and overrides all sensor sources.
 
-2. **LiDAR** — If LiDAR depth is valid, < 8m, and confidence is high. Authoritative for close range. Background: DEM estimate if available.
+2. **LiDAR** — If LiDAR depth is valid, < 12m, and confidence is high. Authoritative for close range. Background: DEM estimate if available.
 
 3. **Object Detection** — If a known-size object is detected at the crosshair with adequate confidence. Background: DEM estimate.
 
 4. **DEM Ray-Cast** — If DEM estimate is available and no object is detected. The primary source for terrain targets (mountains, ridgelines). Background: neural or geometric estimate.
 
-5. **Neural Depth** — If calibrated neural estimate is valid and < 50m (`AppConfiguration.neuralHardCapMeters`). The hard cap prevents unreliable extrapolation. Background: geometric estimate.
+5. **Neural Depth** — If calibrated neural estimate is valid and < 150m (`AppConfiguration.neuralHardCapMeters`). The hard cap prevents unreliable extrapolation at extreme range. Background: geometric estimate.
 
 6. **Geometric Ground-Plane** — Fallback using `D = h / tan(pitch)`. No background (lowest priority).
 
@@ -292,7 +295,7 @@ After the semantic selection engine produces per-frame primary and background es
 - **`fgKalmanFilter`** — tracks the primary (foreground) depth from `semanticSelect()`
 - **`bgKalmanFilter`** — tracks the background hypothesis independently
 
-**Source-switch reset:** When `semanticDecision` changes (e.g., NEURAL_PRIMARY → DEM_PRIMARY), the foreground Kalman filter is reset to prevent stale state contamination. The `previousSemanticDecision` is tracked for comparison. The background filter runs independently and is not affected by primary source switches.
+**Source-switch reset:** When `semanticDecision` changes (e.g., NEURAL_PRIMARY → DEM_PRIMARY), the foreground Kalman filter is reset to prevent stale state contamination. The `previousSemanticDecision` is tracked for comparison. The background filter runs independently and is not affected by primary source switches. Source-switch detection is performed **before** outlier rejection so that legitimate source transitions (e.g., neural→DEM at 150m) are not rejected as outliers by the ring buffer median filter.
 
 ### 4.2 Outlier Rejection (Ring Buffer Median)
 
@@ -331,7 +334,7 @@ F = [1, dt]
 ```
 R = R_base x (1/confidence) x distanceFactor
 ```
-Where `distanceFactor` grows quadratically beyond 100m, reflecting the physics of inverse-depth calibration noise amplification.
+Where `distanceFactor = min(25, (depth/50)²)` grows quadratically but is capped at 25 to keep the filter responsive at long range. Without the cap, extreme distances (500m+) would produce distanceFactor > 100, making Kalman gain effectively zero and the filter unresponsive to valid new measurements.
 
 **Between-frame prediction:** The filter's `predict()` method provides depth estimates between neural inference frames (67ms gaps at 15 FPS), filled by IMU-informed forward extrapolation.
 
@@ -637,6 +640,7 @@ Where:
 | FENCE POST | 1.2 | Typical fence post |
 | POWER POLE | 10.0 | Utility pole |
 | WINDOW | 1.0 | Standard window height |
+| GOLF PIN | 2.13 | USGA regulation flagstick (7 ft) |
 
 ### 14.3 UI Implementation
 

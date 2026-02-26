@@ -13,7 +13,7 @@ The interface presents a configurable reticle overlay (mil-dot, crosshair, or ra
 ### Hardware
 - **iPhone with LiDAR** — iPhone 12 Pro or later (Pro/Pro Max models)
 - **ARKit support** — A12 Bionic or later
-- LiDAR is used for close-range ground truth (0.3–5m) and continuous neural model calibration
+- LiDAR is used for close-range ground truth (0.3–5m, usable to 12m) and continuous neural model calibration
 
 ### Software
 - **iOS 18.0** or later
@@ -84,7 +84,7 @@ xcodebuild test \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
 ```
 
-There are 269 unit tests covering all depth sources, semantic source selection, confidence curves, dual Kalman filtering, calibration, scene classification, geometric estimation, DEM ray-casting, stadiametric ranging, terrain routing, depth zone brackets, and Monte Carlo validation.
+There are 289 unit tests covering all depth sources, semantic source selection, confidence curves, dual Kalman filtering, calibration, scene classification, geometric estimation, DEM ray-casting, stadiametric ranging, terrain routing, depth zone brackets, Monte Carlo validation, and comprehensive distance sweep testing (100–1500 yards).
 
 ---
 
@@ -155,8 +155,8 @@ Rangefinder/
     ├── ConfidenceBadge.swift              Color-coded confidence indicator
     ├── HoldoverIndicator.swift            Ballistic holdover display
     ├── OperatorGuidanceView.swift         Stability bar + coaching hint chips
-    ├── SettingsView.swift                 Config panel + stadiametric presets
-    ├── TutorialView.swift                 7-page tactical onboarding tutorial
+    ├── SettingsView.swift                 Config panel + stadiametric presets + tutorial launchers
+    ├── TutorialView.swift                 Dual-track tutorial: general (7 cards) + golf (6 cards)
     └── Theme.swift                        MIL-STD-3009 color palette
 ```
 
@@ -215,7 +215,7 @@ Tap the menu icon (☰) to open settings:
 - **Reticle Color**: phosphor green, red, amber, purple (NVG/DAY/RED presets)
 - **Reticle Options**: line width, outline toggle; mil-dot style adds filled dots, hash marks, mil labels toggles
 - **Ballistics**: enable/disable, caliber selection (.308 Win, 5.56 NATO, 6.5 CM, .300 WM, .338 NM, .338 LM), zero distance
-- **Stadiametric Ranging**: target height slider (0.3–12.0m), presets (PERSON, VEHICLE, DEER, DOOR) with active-state highlighting
+- **Stadiametric Ranging**: target height slider (0.3–12.0m), 8 presets (PERSON, VEHICLE, DEER, DOOR, FENCE POST, POWER POLE, WINDOW, GOLF PIN) displayed in 2 rows with active-state highlighting
 - **Terrain Ranging**: GPS status, altitude, DEM status, terrain data tile management
 - **System Info**: model status, GPS quality, barometer status, detection capabilities
 
@@ -226,23 +226,23 @@ The app uses **semantic source selection** — a priority-based state machine th
 | Priority | Source | Range | When Selected |
 |---|---|---|---|
 | 1 | **Stadiametric** | Any | User activates STADIA mode and brackets a target |
-| 2 | **LiDAR** | 0–8m | Close range, high confidence |
+| 2 | **LiDAR** | 0–12m | Close range, high confidence |
 | 3 | **Object Detection** | 20–1000m | Known-size object detected at crosshair |
 | 4 | **DEM Ray-Cast** | 20–2000m | Terrain target, no object detected |
-| 5 | **Neural Depth** | 2–50m | Calibrated, hard-capped at 50m |
+| 5 | **Neural Depth** | 2–150m | Calibrated, hard-capped at 150m |
 | 6 | **Geometric** | 5–500m | Ground-plane fallback (D = h/tan(pitch)) |
 
 **Why not weighted average?** Averaging sources that measure fundamentally different things fails catastrophically. When LiDAR sees a rock wall at 2m and DEM sees terrain at 1600m, no weighted average can produce the correct answer. Semantic selection picks the right source for the scenario.
 
 **Background Hypothesis:** A second source provides an alternate reading (e.g., "BG DEM 600 YDS" when neural is primary). This gives the operator context about both foreground and terrain depths.
 
-**Neural Hard Cap (50m):** Neural depth estimation is excluded beyond 50m because inverse-depth noise amplification makes estimates unreliable at longer ranges.
+**Neural Hard Cap (150m):** Neural depth estimation is excluded beyond 150m because inverse-depth noise amplification makes estimates unreliable at longer ranges. The calibrator's compression cap was removed to allow natural extrapolation up to the hard cap boundary.
 
 ### Stadiametric Ranging
 
 Activate STADIA mode via the top bar toggle. A bracket overlay appears on screen:
 
-1. Select target type in Settings (PERSON 1.8m, VEHICLE 1.5m, DEER 1.0m, etc.)
+1. Select target type in Settings (PERSON 1.8m, VEHICLE 1.5m, DEER 1.0m, GOLF PIN 2.13m, etc.)
 2. Drag the top and bottom brackets to align with the target's top and bottom
 3. Range is computed instantly: `R = (targetHeight × focalLength) / pixelSpan`
 
@@ -354,15 +354,15 @@ When enabled, the ballistics solver computes holdover for the selected caliber u
 
 ## Test Coverage
 
-269 unit tests across 20 test files:
+289 unit tests across 21 test files:
 
 | Test File | Count | Coverage Area |
 |---|---|---|
 | BarometricAltitudeTests | 6 | Altitude source selection, barometer defaults |
 | ContinuousCalibratorTests | — | LiDAR→neural calibration, inverse depth fitting |
 | DEMRaycastEstimatorTests | — | Ray-terrain intersection, confidence tiers |
-| DepthKalmanFilterTests | — | Kalman predict/update, motion adaptation |
-| DepthSourceConfidenceTests | — | All 6 confidence curves, neural hard cap at 50m, DEM long-range |
+| DepthKalmanFilterTests | — | Kalman predict/update, motion adaptation, distance factor cap |
+| DepthSourceConfidenceTests | — | All 6 confidence curves, neural hard cap at 150m, DEM long-range |
 | DisagreementPenaltyTests | — | Source outlier suppression logic |
 | GeometricRangeEstimatorTests | — | Ground-plane model, slope penalty |
 | IMUDepthPredictorTests | — | Motion-based prediction |
@@ -376,5 +376,6 @@ When enabled, the ballistics solver computes holdover for the selected caliber u
 | SceneClassifierTests | 11 | Sky/ground/structure detection, rate limiting |
 | SRTMTileCacheTests | — | SRTM tile parsing, elevation queries, caching |
 | **SemanticSelectionTests** | 14 | Priority chain ordering, source switch detection, DEM priority in far-target mode, background hypothesis, neural hard cap, DepthSource/RangeOutput enum changes |
-| **StadiametricRangingTests** | 10 | Pinhole formula at various ranges, zero-pixel edge case, target presets, focal length independence, pixel-error sensitivity |
+| **StadiametricRangingTests** | 12 | Pinhole formula at various ranges, golf pin preset (2.13m), zero-pixel edge case, target presets, focal length independence, pixel-error sensitivity |
+| **RangefinderSweepTests** | 8 | General ranging sweep 100–1500 yds (57 bands × 3 operators), golf pin stadiametric sweep 40–300 yds at 1×/5×/8× zoom, multi-operator repeatability (CV < 15%), environmental condition matrix (432 combos), source handoff stress test |
 | SRTMDownloadTests | — | SRTM region manager, tile download |

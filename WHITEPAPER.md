@@ -6,7 +6,7 @@
 
 ## Abstract
 
-We present a real-time depth estimation system for iOS that selects among six heterogeneous depth sources — LiDAR time-of-flight, neural monocular depth estimation, geometric ground-plane trigonometry, digital elevation model (DEM) ray-casting, object-size pinhole ranging, and user-directed stadiametric bracket ranging — using a priority-based semantic source selection state machine with multi-hypothesis tracking from 0.3 to 2000 meters. The system addresses the fundamental challenge that no single depth source covers the full operational range with adequate accuracy, and that averaging sources measuring fundamentally different things (foreground rock wall vs. background mountain) produces catastrophically wrong results. Our approach replaces weighted-average fusion with a deterministic priority chain: Stadiametric > LiDAR (< 8m) > Object Detection > DEM > Neural (< 50m hard cap) > Geometric. Dual Kalman filters independently track foreground and background depth hypotheses, with automatic filter reset on semantic source switches. A neural depth hard cap at 50m prevents unreliable inverse-depth extrapolation. Monte Carlo testing across 10 distance bands (0.3–2000m) demonstrates mean error below 10% at all distances with 269 unit tests across 19 test files. An IMU-based operator guidance engine provides real-time coaching (stability detection, respiratory pause capture windows, reading lock confirmation) modeled on military marksmanship doctrine (FM 23-10).
+We present a real-time depth estimation system for iOS that selects among six heterogeneous depth sources — LiDAR time-of-flight, neural monocular depth estimation, geometric ground-plane trigonometry, digital elevation model (DEM) ray-casting, object-size pinhole ranging, and user-directed stadiametric bracket ranging — using a priority-based semantic source selection state machine with multi-hypothesis tracking from 0.3 to 2000 meters. The system addresses the fundamental challenge that no single depth source covers the full operational range with adequate accuracy, and that averaging sources measuring fundamentally different things (foreground rock wall vs. background mountain) produces catastrophically wrong results. Our approach replaces weighted-average fusion with a deterministic priority chain: Stadiametric > LiDAR (< 12m) > Object Detection > DEM > Neural (< 150m hard cap) > Geometric. Dual Kalman filters independently track foreground and background depth hypotheses, with automatic filter reset on semantic source switches. A neural depth hard cap at 150m prevents unreliable inverse-depth extrapolation while allowing neural to contribute at medium ranges. Comprehensive testing — Monte Carlo simulation across 10 distance bands (0.3–2000m) plus distance sweep validation (100–1500 yards) with multi-operator repeatability and environmental condition matrices — demonstrates mean error below 10% at all distances with 289 unit tests across 21 test files. Golf-specific stadiametric ranging with a USGA regulation flagstick preset (2.13m) enables club-selection grade accuracy (±2 yards at 150) at 5–8× zoom. An IMU-based operator guidance engine provides real-time coaching (stability detection, respiratory pause capture windows, reading lock confirmation) modeled on military marksmanship doctrine (FM 23-10).
 
 ---
 
@@ -18,8 +18,8 @@ Accurate range estimation from a mobile device across 0–2000m faces a coverage
 
 | Source | Effective Range | Primary Failure Mode |
 |---|---|---|
-| LiDAR (dToF) | 0.3–5m | Signal attenuation beyond 5m |
-| Neural depth (calibrated) | 2–80m | Inverse-depth noise amplification |
+| LiDAR (dToF) | 0.3–12m | Signal attenuation beyond 5m |
+| Neural depth (calibrated) | 2–150m | Inverse-depth noise amplification |
 | Geometric (ground plane) | 5–200m | Assumes flat terrain |
 | DEM ray-casting | 20–2000m | Requires GPS fix, heading accuracy |
 | Object detection | 20–1000m | Requires recognized objects in view |
@@ -31,14 +31,14 @@ No weighted average of sources that individually produce wrong answers can produ
 We replace the weighted-average fusion architecture with a **semantic source selection** state machine. Instead of blending all sources, the system selects ONE authoritative primary source per frame via a deterministic priority chain:
 
 ```
-Priority: Stadiametric > LiDAR (<8m) > Object > DEM > Neural (<50m) > Geometric
+Priority: Stadiametric > LiDAR (<12m) > Object > DEM > Neural (<150m) > Geometric
 ```
 
 A secondary "background hypothesis" from a different source is tracked independently via dual Kalman filters, providing the operator with context about alternate depth readings (e.g., foreground obstacle vs. terrain behind it). Key architectural decisions:
 
-1. **Neural hard cap at 50m** — inverse-depth noise amplification makes neural estimates unreliable beyond 50m; confidence drops to zero
+1. **Neural hard cap at 150m** — inverse-depth noise amplification makes neural estimates unreliable beyond 150m; confidence drops to zero. The calibrator's compression cap was removed to allow natural extrapolation up to this boundary.
 2. **Dual Kalman filters** — foreground and background tracked independently; filter resets on source switches
-3. **Stadiametric manual ranging** — user-directed bracket overlay using pinhole formula `R = (knownSize × focalLength) / pixelSize`
+3. **Stadiametric manual ranging** — user-directed bracket overlay using pinhole formula `R = (knownSize × focalLength) / pixelSize`, with 8 target presets including USGA regulation golf pin (2.13m)
 4. **DEM map verification** — MapKit picture-in-picture showing ray-cast hit point on satellite imagery
 
 ---
@@ -102,7 +102,7 @@ With decay = 0.95 per second and a rolling window of 50 samples.
 sigma_d = scale * sigma_n / n^2 = (d^2 / scale) * sigma_n
 ```
 
-At 50m with scale approximately 10: sigma_d = 250 * sigma_n. At 200m: sigma_d = 4000 * sigma_n. This quadratic growth motivates the neural hard cap at 50m (`AppConfiguration.neuralHardCapMeters = 50.0`) — beyond this distance, neural confidence drops to exactly zero and the source is excluded from semantic selection.
+At 50m with scale approximately 10: sigma_d = 250 * sigma_n. At 200m: sigma_d = 4000 * sigma_n. This quadratic growth motivates the neural hard cap at 150m (`AppConfiguration.neuralHardCapMeters = 150.0`) — beyond this distance, neural confidence drops to exactly zero and the source is excluded from semantic selection. The 150m boundary (extended from 50m in the pipeline overhaul) was chosen to allow neural to contribute useful signal at medium ranges where confidence is low but non-zero, while the calibrator's compression cap was removed to allow natural extrapolation.
 
 **Extrapolation risk:** Calibration is trained on 0.2–8m data. Beyond 8m, the affine model is extrapolating. The calibration quality modifier provides a 30-second full-confidence window after the last LiDAR pair, then decays to a floor of 0.30 over 5 minutes.
 
@@ -238,12 +238,7 @@ P_updated = (I - K * H) * P_predicted
 R = R_base * (1/confidence) * distanceFactor(depth)
 ```
 
-Where `distanceFactor` grows quadratically beyond 100m, reflecting inverse-depth noise amplification:
-```
-distanceFactor(d) = (d/50)^2    for d > 100m
-```
-
-This ensures the Kalman gain decreases at long range, relying more on the constant-velocity prediction model than on noisy measurements.
+Where `distanceFactor = min(25, (d/50)²)` grows quadratically but is capped at 25 to keep the filter responsive at long range. Without the cap, extreme distances (500m+) would produce distanceFactor > 100, making Kalman gain effectively zero and the filter unresponsive to valid new measurements. The cap of 25 provides a balance: at 500m, R = R_base × (1/confidence) × 25, giving Kalman gain ≈ 0.1 — the filter still tracks new measurements while maintaining stability.
 
 ---
 
@@ -261,10 +256,10 @@ The `semanticSelect()` method in `UnifiedDepthField` evaluates sources in strict
 
 ```
 1. STADIAMETRIC  — User-explicit manual bracket (highest priority)
-2. LIDAR_PRIMARY — Close range <8m, high confidence
+2. LIDAR_PRIMARY — Close range <12m, high confidence
 3. OBJECT_PRIMARY — Known-size pinhole ranging at crosshair
 4. DEM_PRIMARY   — Terrain target (no object detected)
-5. NEURAL_PRIMARY — Calibrated depth, <50m hard cap
+5. NEURAL_PRIMARY — Calibrated depth, <150m hard cap
 6. GEO_PRIMARY   — Ground-plane fallback
 7. NONE          — No valid source available
 ```
@@ -282,14 +277,14 @@ After selecting the primary source, `semanticSelect()` returns a secondary "back
 
 The background estimate is tracked by an independent Kalman filter (`bgKalmanFilter`) and displayed as a "BG" chip below the primary range readout.
 
-### 3.4 Neural Hard Cap (50m)
+### 3.4 Neural Hard Cap (150m)
 
-Neural depth estimation uses inverse-depth calibration that amplifies noise quadratically with distance. Beyond 50m, the error growth makes neural estimates unreliable. The hard cap is enforced at two levels:
+Neural depth estimation uses inverse-depth calibration that amplifies noise quadratically with distance. Beyond 150m, the error growth makes neural estimates unreliable. The hard cap is enforced at two levels:
 
-1. **DepthSourceConfidence.neural()**: returns 0.0 for distances >= 50m
+1. **DepthSourceConfidence.neural()**: returns 0.0 for distances >= 150m
 2. **semanticSelect()**: skips neural candidate when estimated distance >= `AppConfiguration.neuralHardCapMeters`
 
-The 50m threshold was chosen based on analysis of inverse-depth noise amplification: at 50m with scale ~10, sigma_d = 250 × sigma_n — a 10× amplification from the 5m sweet spot.
+The 150m threshold (extended from 50m in the pipeline overhaul) allows neural to contribute useful signal at medium ranges with progressively lower confidence. At 150m with scale ~10, sigma_d = 2250 × sigma_n, making neural estimates unreliable. The calibrator's compression cap was removed to allow natural extrapolation up to 150m without artificially squashing distances.
 
 ### 3.5 Stadiametric Manual Ranging
 
@@ -299,7 +294,7 @@ When the user activates STADIA mode, a draggable bracket overlay appears on scre
 R = (knownSize × focalLength) / pixelSize
 ```
 
-Where `knownSize` is configurable (presets: PERSON 1.8m, VEHICLE 1.5m, DEER 1.0m, DOOR 2.0m) and `pixelSize` is the pixel distance between brackets. Stadiametric input has the highest priority in semantic selection — it overrides all sensor-based sources.
+Where `knownSize` is configurable (8 presets: PERSON 1.8m, VEHICLE 1.5m, DEER 1.0m, DOOR 2.0m, FENCE POST 1.2m, POWER POLE 10.0m, WINDOW 1.0m, GOLF PIN 2.13m) and `pixelSize` is the pixel distance between brackets. Stadiametric input has the highest priority in semantic selection — it overrides all sensor-based sources. The GOLF PIN preset uses the USGA regulation flagstick height (7 ft / 2.13m) and is specifically designed for golf rangefinding at 40–300 yards with 5–8× telephoto zoom.
 
 ### 3.6 Dual Kalman Filters
 
@@ -520,7 +515,7 @@ Total pipeline latency: 25–50ms (neural inference dominates). The system maint
 
 ### 8.1 Unit Test Coverage
 
-269 tests across 20 test files verify:
+289 tests across 21 test files verify:
 
 - **Confidence curves:** Each source curve tested at multiple distance points for expected shape, boundary conditions, and decay rates
 - **Calibration:** Inverse and metric model detection, weighted least-squares fit accuracy, confidence computation, edge cases (single sample, zero neural depth)
@@ -569,7 +564,35 @@ A dedicated Monte Carlo test harness validates the full fusion pipeline across 1
 
 **Lesson learned:** The original DEM confidence curve dropped too aggressively at 600–2000m (0.88→0.50), and the maxExpected normalizer at 500m+ was 1.35 (assuming DEM+Object always fire together). This caused displayed confidence to read 30–40% on readings that were actually within 5% of ground truth. Flattening the DEM curve (0.88→0.65) and splitting 500m+ into two tiers (1.10 and 0.95) fixed the confidence-accuracy mismatch without affecting the fused distance values.
 
-### 8.3 Synthetic Depth Maps
+### 8.3 Comprehensive Distance Sweep Testing
+
+A dedicated sweep test suite (`RangefinderSweepTests.swift`) validates the full ranging pipeline across 100–1500 yards with five complementary test types based on industry-standard rangefinder testing methodologies (GolfLink, Vovex Golf, KITTI, Mossy Oak/Bushnell):
+
+**Test 1: General Ranging Sweep (100–1500 yds)**
+- 57 distance bands in 25-yard steps, 50 frames × 3 operator seeds per band
+- Distance-scaled tolerances: 8% (<200 yds), 12% (200–400), 18% (400–800), 25% (800–1200), 35% (1200–1500)
+- Result: 57/57 bands pass, global mean 5.0%, P90 10.5%
+
+**Test 2: Golf Pin Stadiametric Sweep (40–300 yds)**
+- Tests USGA 2.13m flagstick at 1×, 5×, and 8× zoom with realistic bracket noise model
+- Golf tolerances: 3% (<100 yds), 5% (100–150), 8% (150–200), 12% (200–250), 15% (250–300)
+- Results: 5× zoom 27/27 pass (all club-selection grade), 8× zoom 27/27 pass, 1× zoom 21/27 pass (expected — pin too small beyond 150 yds at 1×)
+
+**Test 3: Multi-Operator Repeatability**
+- 5 operators (RNG seeds) × 6 key distances × 100 frames each
+- Acceptance: coefficient of variation (CV) < 15% across operators
+- All distances pass
+
+**Test 4: Environmental Condition Matrix**
+- 6 distances × 4 GPS qualities × 3 slopes × 3 calibration ages × 2 object configs = 432 combos × 20 frames
+- Validates graceful degradation under extreme conditions (GPS 25m + steep slope + stale cal)
+- Catastrophic errors (>80%) allowed up to 15% of combos (extreme conditions expected to degrade)
+
+**Test 5: Source Handoff Stress Test**
+- Walks 5m → 1372m in 10m steps (30 frames each), verifying no dead zones and no 3× jumps
+- Validates source transition ordering: LiDAR → Neural → Geometric → DEM/Object
+
+### 8.4 Synthetic Depth Maps
 
 Scene classifier tests use programmatically generated CVPixelBuffer depth maps:
 
@@ -652,10 +675,10 @@ Test patterns:
 |---|---|
 | Source files | 52 Swift files |
 | Source lines | ~11,700 |
-| Test files | 20 Swift files |
-| Test lines | ~6,200 |
-| Total lines | ~17,900 |
-| Unit tests | 269 |
+| Test files | 21 Swift files |
+| Test lines | ~7,000 |
+| Total lines | ~18,700 |
+| Unit tests | 289 |
 | Depth sources | 6 (LiDAR, neural, geometric, DEM, object, stadiametric) |
 | ML models | 3 (depth, depth secondary, object detection) |
 | Frameworks | 14 Apple frameworks + MapKit |
@@ -738,10 +761,26 @@ The most significant architectural lesson was that weighted-average fusion fails
 
 **Principle:** Averaging is appropriate when sources measure the same thing with different noise characteristics. It fails when sources measure different things entirely (foreground vs. terrain). The correct architecture for heterogeneous measurements is selection, not fusion.
 
-### 12.10 Neural Depth Hard Cap Prevents Silent Degradation
+### 12.10 Neural Hard Cap Extension: 50m → 150m
 
-Before the 50m hard cap, neural depth estimates gradually degraded beyond their calibration range (0.2–8m) but continued contributing to fusion with slowly decreasing weight. At 80m, the neural estimate might be 45m with 0.30 confidence — wrong enough to corrupt the fusion but confident enough to participate. The hard cap at 50m creates a clean boundary: neural is either authoritative (< 50m) or excluded (>= 50m). The intentional discontinuity at the boundary is preferable to smooth degradation that silently produces wrong answers.
+The original 50m hard cap was effective but too aggressive — it excluded neural from the 50–150m range where it can still provide useful (if low-confidence) signal as a secondary contributor alongside DEM. The pipeline overhaul extended the cap to 150m with a gradual confidence decay (0.35 at 50m → 0.08 at 150m), while simultaneously removing the calibrator's compression cap that had been artificially squashing distances beyond ~80m. The combination allows neural to contribute useful medium-range signal without dominating fusion at ranges where its calibration is unreliable.
 
-### 12.11 Dual Kalman Filters Enable Multi-Hypothesis Display
+**Principle:** Hard caps should be set at the boundary where a source becomes genuinely harmful, not merely imperfect. Between 50–150m, neural with 0.15 confidence provides useful corroboration of DEM without overriding it.
+
+### 12.11 Pipeline Overhaul: Seven Interacting Fixes
+
+A comprehensive pipeline overhaul addressed seven interacting issues that collectively prevented accurate ranging beyond 50m:
+
+1. **Neural hard cap 50→150m** — extended useful neural range
+2. **Calibrator compression removed** — eliminated artificial distance squashing
+3. **Confidence curves extended** — LiDAR 10→12m, neural gradual decay to 150m
+4. **LiDAR max range 10→12m** — captures more calibration pairs
+5. **Geometric slope penalty relaxed** — threshold 3→5°, avoiding false penalties at gentle angles
+6. **Kalman distance factor capped at 25** — keeps filter responsive at long range
+7. **Semantic switch detection before outlier rejection** — prevents legitimate source transitions from being rejected as outliers
+
+**Principle:** Depth pipeline issues compound nonlinearly. The compression cap at 80m and the Kalman distance factor of 100 individually caused moderate problems, but together they made long-range readings both wrong (compressed) and frozen (unresponsive filter). Fixing either alone improved results; fixing both together produced dramatically better accuracy across the full 100–1500 yard range.
+
+### 12.12 Dual Kalman Filters Enable Multi-Hypothesis Display
 
 A single Kalman filter tracking the "fused" estimate cannot simultaneously represent foreground and background depths. When the semantic selection switches from neural (45m foreground) to DEM (1600m terrain), the single filter slowly tracks toward the new value, displaying incorrect intermediate readings for several frames. Dual independent filters — one for the primary selection, one for the background hypothesis — solve this by resetting the foreground filter on source switches and maintaining the background estimate independently.
