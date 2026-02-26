@@ -23,6 +23,10 @@ struct FrameData: @unchecked Sendable {
     let pitchRadians: Float
     let timestamp: TimeInterval
     let cameraPose: simd_float4x4
+    /// Current optical+digital zoom factor (1.0 = no zoom).
+    /// Used by depth map sampling to convert crosshair screen position
+    /// to the correct coordinate in the wide-angle LiDAR depth map.
+    let zoomFactor: CGFloat
 }
 
 @MainActor
@@ -43,7 +47,17 @@ class CameraManager: NSObject, ObservableObject {
 
     // MARK: - Zoom
 
-    private var captureDevice: AVCaptureDevice?
+    /// The capture device for zoom control. Marked nonisolated(unsafe) because
+    /// we read videoZoomFactor from the nonisolated ARSessionDelegate callback.
+    /// AVCaptureDevice properties are thread-safe for reading.
+    nonisolated(unsafe) private var captureDevice: AVCaptureDevice?
+
+    /// Current logical zoom factor set by ZoomController.
+    /// ARKit ignores AVCaptureDevice.videoZoomFactor for its camera feed and
+    /// depth maps — visual zoom is implemented via view scaling instead.
+    /// This property tracks the user's intended zoom so the ranging pipeline
+    /// can apply appropriate confidence adjustments at high zoom.
+    nonisolated(unsafe) var currentZoomFactor: CGFloat = 1.0
 
     // MARK: - Setup
 
@@ -98,6 +112,13 @@ class CameraManager: NSObject, ObservableObject {
     // MARK: - Zoom Control
 
     func setZoomFactor(_ factor: CGFloat) {
+        // Store the logical zoom factor for the ranging pipeline.
+        // Visual zoom is handled by CameraPreviewView's CGAffineTransform.
+        currentZoomFactor = factor
+
+        // Also attempt to set device zoom — ARKit currently ignores this for
+        // its camera feed and depth maps, but setting it keeps AVCaptureDevice
+        // state consistent and may be used by future ARKit versions.
         guard let device = captureDevice else { return }
         do {
             try device.lockForConfiguration()
@@ -153,7 +174,8 @@ extension CameraManager: ARSessionDelegate {
             lidarConfidenceMap: lidarConfidence,
             pitchRadians: pitch,
             timestamp: frame.timestamp,
-            cameraPose: frame.camera.transform
+            cameraPose: frame.camera.transform,
+            zoomFactor: currentZoomFactor
         )
 
         frameSubject.send(frameData)

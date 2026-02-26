@@ -107,10 +107,11 @@ struct AppConfiguration {
     // MARK: - Semantic Selection
 
     /// Neural depth hard cap: readings beyond this distance are discarded.
-    /// Neural (DAv2 calibrated via LiDAR at 0.2-8m) becomes unreliable
-    /// beyond ~50m due to inverse-depth amplification. The semantic
-    /// selector simply skips neural when calibratedDepth > 50m.
-    static let neuralHardCapMeters: Float = 50.0
+    /// Neural (DAv2 calibrated via LiDAR at 0.2-8m) extrapolates reasonably
+    /// to ~150m with progressively declining confidence. Beyond 150m the
+    /// inverse-depth amplification makes it unreliable — DEM and object
+    /// detection take over.
+    static let neuralHardCapMeters: Float = 150.0
 
     // MARK: - Stadiametric Target Presets
 
@@ -124,5 +125,6 @@ struct AppConfiguration {
         ("FENCE POST", 1.2),
         ("POWER POLE", 10.0),
         ("WINDOW", 1.0),
+        ("GOLF PIN", 2.13),
     ]
 }

@@ -19,6 +19,7 @@ struct SettingsView: View {
     @ObservedObject var regionManager: SRTMRegionManager
     @Environment(\.dismiss) private var dismiss
     @AppStorage("hasCompletedTutorial") private var hasCompletedTutorial = true
+    @AppStorage("tutorialCategory") private var tutorialCategory = ""
 
     var body: some View {
         NavigationStack {
@@ -228,10 +229,23 @@ struct SettingsView: View {
                                 .font(.system(size: 11, weight: .bold, design: .monospaced))
                                 .foregroundColor(Theme.milGreenDim)
 
-                            // Use wrapping layout to avoid overflow on small screens
-                            let presets = AppConfiguration.stadiametricTargetPresets.prefix(4)
+                            // Two rows of preset buttons
+                            let allPresets = AppConfiguration.stadiametricTargetPresets
+                            let row1 = Array(allPresets.prefix(4))
+                            let row2 = Array(allPresets.dropFirst(4))
                             HStack(spacing: 8) {
-                                ForEach(Array(presets), id: \.label) { preset in
+                                ForEach(row1, id: \.label) { preset in
+                                    Button {
+                                        stadiametricTargetSize = preset.heightMeters
+                                    } label: {
+                                        Text(preset.label)
+                                            .frame(maxWidth: .infinity)
+                                    }
+                                    .buttonStyle(MilPresetButton(isActive: abs(stadiametricTargetSize - preset.heightMeters) < 0.05))
+                                }
+                            }
+                            HStack(spacing: 8) {
+                                ForEach(row2, id: \.label) { preset in
                                     Button {
                                         stadiametricTargetSize = preset.heightMeters
                                     } label: {
@@ -415,12 +429,35 @@ struct SettingsView: View {
 
                 // Help
                 Section {
-                    Button("SHOW BRIEFING") {
+                    Button {
+                        tutorialCategory = ""
                         hasCompletedTutorial = false
                         dismiss()
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "scope")
+                                .font(.system(size: 14))
+                                .frame(width: 22)
+                            Text("GENERAL BRIEFING")
+                                .font(.system(size: 14, weight: .medium, design: .monospaced))
+                        }
+                        .foregroundColor(Theme.milGreen)
                     }
-                    .font(.system(size: 14, weight: .medium, design: .monospaced))
-                    .foregroundColor(Theme.milGreen)
+
+                    Button {
+                        tutorialCategory = TutorialCategory.golf.rawValue
+                        hasCompletedTutorial = false
+                        dismiss()
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "flag.fill")
+                                .font(.system(size: 14))
+                                .frame(width: 22)
+                            Text("GOLF PIN TUTORIAL")
+                                .font(.system(size: 14, weight: .medium, design: .monospaced))
+                        }
+                        .foregroundColor(Theme.milAmber)
+                    }
                 } header: {
                     Text("SYSTEM")
                         .font(.system(size: 11, weight: .bold, design: .monospaced))

@@ -102,38 +102,15 @@ class ContinuousCalibrator: @unchecked Sendable {
         case .inverse:
             // lidar = scale / neural + shift
             let raw = cal.scale / neuralDepth + cal.shift
-            // Guard against extreme extrapolation: the inverse transform
-            // amplifies noise at very small neural values (far objects).
-            // Calibration trained on 0.2-8m LiDAR; reliable to ~80m,
-            // progressively unreliable beyond.
-            //
-            // Raised cap from 200m → 500m so that neural depth can extend
-            // further when the calibration fit supports it (e.g. when the
-            // inverse-depth curve has a gentle slope at the far end).
-            // Beyond 150m we apply soft compression to avoid wild jumps:
-            // the extrapolation penalty in UnifiedDepthField handles the
-            // confidence reduction, but we still need a plausible distance.
-            if raw <= 150.0 {
-                return max(0.1, raw)
-            } else {
-                // Soft compression: asymptotically approach 500m
-                // At 150m: returns 150m
-                // At 300m: returns ~280m
-                // At 1000m: returns ~460m
-                let excess = raw - 150.0
-                let compressed = 150.0 + 350.0 * (1.0 - exp(-excess / 350.0))
-                return min(compressed, 500.0)
-            }
+            // Simple clamp: the semantic selector enforces the neural hard cap
+            // (150m) and confidence curves handle extrapolation quality. No soft
+            // compression — let the calibration extrapolate naturally so that
+            // distances up to 150m aren't artificially squashed.
+            return max(0.1, min(raw, 1000.0))
         case .metric, .unknown:
             // lidar = scale * neural + shift
             let raw = cal.apply(to: neuralDepth)
-            if raw <= 150.0 {
-                return max(0.1, raw)
-            } else {
-                let excess = raw - 150.0
-                let compressed = 150.0 + 350.0 * (1.0 - exp(-excess / 350.0))
-                return min(compressed, 500.0)
-            }
+            return max(0.1, min(raw, 1000.0))
         }
     }
 

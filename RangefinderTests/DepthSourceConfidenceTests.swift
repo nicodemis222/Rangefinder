@@ -27,17 +27,20 @@ final class DepthSourceConfidenceTests: XCTestCase {
         XCTAssertGreaterThan(at5, at8)
     }
 
-    func testLiDARZeroBeyond10m() {
-        XCTAssertEqual(DepthSourceConfidence.lidar(distanceM: 10.0), 0.0, accuracy: 0.01)
+    func testLiDARZeroBeyond12m() {
+        XCTAssertEqual(DepthSourceConfidence.lidar(distanceM: 12.0), 0.0, accuracy: 0.01)
         XCTAssertEqual(DepthSourceConfidence.lidar(distanceM: 100.0), 0.0, accuracy: 0.01)
     }
 
-    func testLiDARGentleTail8to10m() {
+    func testLiDARGentleTail8to12m() {
         let at8 = DepthSourceConfidence.lidar(distanceM: 8.0)
         let at9 = DepthSourceConfidence.lidar(distanceM: 9.0)
+        let at11 = DepthSourceConfidence.lidar(distanceM: 11.0)
         XCTAssertGreaterThan(at8, 0.1, "LiDAR should still be nonzero at 8m")
         XCTAssertGreaterThan(at9, 0.0, "LiDAR should still be nonzero at 9m")
+        XCTAssertGreaterThan(at11, 0.0, "LiDAR should still be nonzero at 11m")
         XCTAssertGreaterThan(at8, at9, "LiDAR should be fading 8->9m")
+        XCTAssertGreaterThan(at9, at11, "LiDAR should be fading 9->11m")
     }
 
     func testLiDARZeroTooClose() {
@@ -78,30 +81,30 @@ final class DepthSourceConfidenceTests: XCTestCase {
         XCTAssertEqual(at1, 0.3, accuracy: 0.01)
     }
 
-    func testNeuralHardCapAt50m() {
-        // Neural hard cap: returns 0.0 at and beyond 50m (neuralHardCapMeters)
-        let at49 = DepthSourceConfidence.neural(distanceM: 49.0)
-        let at49_9 = DepthSourceConfidence.neural(distanceM: 49.9)
-        let at50 = DepthSourceConfidence.neural(distanceM: 50.0)
-        let at51 = DepthSourceConfidence.neural(distanceM: 51.0)
+    func testNeuralHardCapAt150m() {
+        // Neural hard cap: returns 0.0 at and beyond 150m (neuralHardCapMeters)
+        let at140 = DepthSourceConfidence.neural(distanceM: 140.0)
+        let at149 = DepthSourceConfidence.neural(distanceM: 149.0)
+        let at150 = DepthSourceConfidence.neural(distanceM: 150.0)
+        let at151 = DepthSourceConfidence.neural(distanceM: 151.0)
 
-        // Just under cap: in 40-50 bracket: 0.45 - (49-40)*0.01 = 0.36
-        XCTAssertEqual(at49, 0.36, accuracy: 0.02)
-        // Very close to cap: 0.45 - (49.9-40)*0.01 = 0.351
-        XCTAssertGreaterThan(at49_9, 0.30, "Just under 50m should still be positive")
-        // At exactly 50m: falls through < 50 bracket, hits return 0.0
-        XCTAssertEqual(at50, 0.0, accuracy: 0.001,
-            "Neural should be zero at exactly 50m (boundary)")
+        // At 140m: in 120-150 bracket: 0.15 - (140-120)*0.00233 ≈ 0.103
+        XCTAssertGreaterThan(at140, 0.08, "Neural at 140m should still be positive")
+        // At 149m: near the cap, very low but positive
+        XCTAssertGreaterThan(at149, 0.05, "Just under 150m should still be positive")
+        // At exactly 150m: falls through < 150 bracket, hits return 0.0
+        XCTAssertEqual(at150, 0.0, accuracy: 0.001,
+            "Neural should be zero at exactly 150m (boundary)")
         // Beyond cap: hard zero
-        XCTAssertEqual(at51, 0.0, accuracy: 0.001,
-            "Neural should be exactly 0 beyond the 50m hard cap")
+        XCTAssertEqual(at151, 0.0, accuracy: 0.001,
+            "Neural should be exactly 0 beyond the 150m hard cap")
     }
 
     func testNeuralZeroBeyondHardCap() {
-        // All readings beyond 50m should be zero
-        XCTAssertEqual(DepthSourceConfidence.neural(distanceM: 80.0), 0.0, accuracy: 0.001)
-        XCTAssertEqual(DepthSourceConfidence.neural(distanceM: 100.0), 0.0, accuracy: 0.001)
+        // All readings beyond 150m should be zero
+        XCTAssertEqual(DepthSourceConfidence.neural(distanceM: 200.0), 0.0, accuracy: 0.001)
         XCTAssertEqual(DepthSourceConfidence.neural(distanceM: 500.0), 0.0, accuracy: 0.001)
+        XCTAssertEqual(DepthSourceConfidence.neural(distanceM: 1000.0), 0.0, accuracy: 0.001)
     }
 
     // MARK: - DEM Raycast Confidence
@@ -167,8 +170,8 @@ final class DepthSourceConfidenceTests: XCTestCase {
     // MARK: - Neural + DEM Overlap
 
     func testNeuralDEMOverlap() {
-        // At 30-50m, both neural and DEM should have non-zero confidence
-        // This is the critical handoff zone (neural caps at 50m)
+        // At 30-100m, both neural and DEM should have non-zero confidence
+        // Neural now extends to 150m with declining weight
         let neural40 = DepthSourceConfidence.neural(distanceM: 40.0)
         let dem40 = DepthSourceConfidence.demRaycast(distanceM: 40.0, gpsAccuracy: 5.0, headingAccuracy: 5.0)
 
@@ -176,11 +179,16 @@ final class DepthSourceConfidenceTests: XCTestCase {
         XCTAssertEqual(neural40, 0.45, accuracy: 0.02, "Neural should still be active at 40m")
         XCTAssertGreaterThan(dem40, 0.2, "DEM should be active at 40m")
 
-        // Beyond 50m, neural is zero and DEM takes over completely
+        // At 60m, neural is fading but still present; DEM is rising
         let neural60 = DepthSourceConfidence.neural(distanceM: 60.0)
         let dem60 = DepthSourceConfidence.demRaycast(distanceM: 60.0, gpsAccuracy: 5.0, headingAccuracy: 5.0)
-        XCTAssertEqual(neural60, 0.0, accuracy: 0.001, "Neural should be zero beyond hard cap")
-        XCTAssertGreaterThan(dem60, 0.4, "DEM should be strong beyond neural cap")
+        // Neural at 60m: in 50-80 bracket: 0.35 - (60-50)*0.00333 ≈ 0.317
+        XCTAssertGreaterThan(neural60, 0.25, "Neural should still be active at 60m (extended curve)")
+        XCTAssertGreaterThan(dem60, 0.4, "DEM should be strong at 60m")
+
+        // Beyond 150m, neural is zero and DEM takes over completely
+        let neural160 = DepthSourceConfidence.neural(distanceM: 160.0)
+        XCTAssertEqual(neural160, 0.0, accuracy: 0.001, "Neural should be zero beyond 150m hard cap")
     }
 
     // MARK: - Geometric Confidence
@@ -252,14 +260,14 @@ final class DepthSourceConfidenceTests: XCTestCase {
         XCTAssertGreaterThan(fresh, stale)
     }
 
-    func testCalibrationStillStrongAt30s() {
-        // Calibration should still be full quality at 30s
-        // (gives user time to walk past LiDAR range)
-        let at30s = DepthSourceConfidence.calibrationQuality(
-            calibrationAge: 30.0,
+    func testCalibrationStillStrongAt60s() {
+        // Calibration should still be full quality at 60s
+        // (gives user a full minute to walk past LiDAR range)
+        let at60s = DepthSourceConfidence.calibrationQuality(
+            calibrationAge: 60.0,
             calibrationConfidence: 0.9
         )
-        XCTAssertEqual(at30s, 0.9, accuracy: 0.01)
+        XCTAssertEqual(at60s, 0.9, accuracy: 0.01)
     }
 
     // MARK: - DEM Refined Curve Specifics
@@ -336,9 +344,9 @@ final class DepthSourceConfidenceTests: XCTestCase {
     }
 
     func testNeuralBeyondHardCapEffectiveZero() {
-        // Beyond 50m hard cap, neural curve is 0 so effective weight is always 0
-        let curve = DepthSourceConfidence.neural(distanceM: 80.0)
+        // Beyond 150m hard cap, neural curve is 0 so effective weight is always 0
+        let curve = DepthSourceConfidence.neural(distanceM: 200.0)
         XCTAssertEqual(curve, 0.0, accuracy: 0.001,
-            "Neural at 80m should be zero due to hard cap")
+            "Neural at 200m should be zero due to hard cap")
     }
 }

@@ -12,6 +12,12 @@ import SwiftUI
 struct RangefinderApp: App {
     @StateObject private var appState = AppState()
     @AppStorage("hasCompletedTutorial") private var hasCompletedTutorial = false
+    @AppStorage("tutorialCategory") private var tutorialCategory = ""
+
+    /// Resolve stored category string to enum (nil = show category picker)
+    private var initialCategory: TutorialCategory? {
+        TutorialCategory(rawValue: tutorialCategory)
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -20,11 +26,15 @@ struct RangefinderApp: App {
                     .environmentObject(appState)
 
                 if !hasCompletedTutorial {
-                    TutorialView(onComplete: {
-                        withAnimation(.easeInOut(duration: 0.4)) {
-                            hasCompletedTutorial = true
-                        }
-                    })
+                    TutorialView(
+                        onComplete: {
+                            withAnimation(.easeInOut(duration: 0.4)) {
+                                hasCompletedTutorial = true
+                                tutorialCategory = ""
+                            }
+                        },
+                        initialCategory: initialCategory
+                    )
                     .transition(.opacity)
                     .zIndex(100)
                 }

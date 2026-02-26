@@ -111,6 +111,34 @@ final class StadiametricRangingTests: XCTestCase {
         let deer = presets.first { $0.label == "DEER" }
         XCTAssertNotNil(deer, "DEER preset should exist")
         XCTAssertEqual(deer!.heightMeters, 1.0, accuracy: 0.01)
+
+        // Verify golf pin preset (USGA regulation: 7 feet / 2.13m)
+        let golfPin = presets.first { $0.label == "GOLF PIN" }
+        XCTAssertNotNil(golfPin, "GOLF PIN preset should exist")
+        XCTAssertEqual(golfPin!.heightMeters, 2.13, accuracy: 0.01)
+    }
+
+    func testGolfPinRanging() {
+        // USGA regulation golf pin: 7 feet = 2.1336m, we use 2.13m
+        // At 137m (150 yards) with f=2160px:
+        // pixelSize = (2.13 * 2160) / 137 = 33.57px
+        let input = StadiametricInput(
+            knownSizeMeters: 2.13,
+            pixelSize: 33.57,
+            focalLengthPixels: 2160
+        )
+        XCTAssertEqual(input.computedRange, 137.0, accuracy: 1.0)
+    }
+
+    func testGolfPinAt200Yards() {
+        // 200 yards = 182.88m
+        // pixelSize = (2.13 * 2160) / 182.88 = 25.16px
+        let input = StadiametricInput(
+            knownSizeMeters: 2.13,
+            pixelSize: 25.16,
+            focalLengthPixels: 2160
+        )
+        XCTAssertEqual(input.computedRange, 182.88, accuracy: 1.0)
     }
 
     // MARK: - Different Focal Lengths

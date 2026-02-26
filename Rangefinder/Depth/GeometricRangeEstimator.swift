@@ -127,17 +127,31 @@ struct GeometricRangeEstimator {
             baseConfidence = max(0.05, 0.20 * (pitchBelowHorizontalDeg / 0.5))
         }
 
-        // Slope risk penalty: steep pitch (>3°) more likely indicates terrain
-        // slope than a flat ground target nearby. At 1.5m height:
-        //   3° → D=28.6m (plausible flat ground)
-        //   5° → D=17.2m (plausible but suspicious)
-        //   8.7° → D=9.8m (almost certainly looking downhill, not at ground 10m away)
-        //   15° → D=5.6m (extreme: definitely slope)
+        // Slope risk penalty: steep pitch (>5°) more likely indicates:
+        //   a) terrain slope rather than flat ground target
+        //   b) user is at an elevated position (balcony, parking structure)
+        // In both cases, the ground-plane assumption (D = h / tan(pitch)) is invalid.
+        // At 1.5m height:
+        //   5° → D=17.2m (plausible flat ground, no penalty)
+        //   8° → D=10.7m (might be slope, mild penalty)
+        //   12° → D=7.1m (likely slope, moderate penalty)
+        //   20° → D=4.1m (almost certainly elevated or slope)
+        //
+        // Gentler ramp than before: at medium angles (5-12°) the flat-ground
+        // assumption is still plausible (e.g. looking at an object 10m away
+        // from 1.5m height = 8.5°). Only at steep angles is the penalty heavy.
         let slopePenalty: Float
-        if pitchBelowHorizontalDeg <= 3.0 {
+        if pitchBelowHorizontalDeg <= 5.0 {
             slopePenalty = 1.0  // No penalty: shallow pitch is consistent with flat ground
+        } else if pitchBelowHorizontalDeg <= 12.0 {
+            // 1.0 → 0.5 over 5-12° range (gentler than before)
+            slopePenalty = 1.0 - (pitchBelowHorizontalDeg - 5.0) * 0.0714
+        } else if pitchBelowHorizontalDeg <= 20.0 {
+            // 0.5 → 0.15 over 12-20° range
+            slopePenalty = 0.50 - (pitchBelowHorizontalDeg - 12.0) * 0.04375
         } else {
-            slopePenalty = max(0.4, 1.0 - (pitchBelowHorizontalDeg - 3.0) * 0.08)
+            // Beyond 20°: floor at 0.10, geometric is almost certainly wrong
+            slopePenalty = 0.10
         }
 
         return baseConfidence * slopePenalty

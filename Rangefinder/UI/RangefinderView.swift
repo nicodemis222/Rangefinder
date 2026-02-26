@@ -30,9 +30,15 @@ struct RangefinderView: View {
 
     var body: some View {
         ZStack {
-            // Layer 1: Camera preview (full bleed)
-            CameraPreviewView(cameraManager: appState.cameraManager)
-                .ignoresSafeArea()
+            // Layer 1: Camera preview (full bleed, zoom-scaled)
+            // The ARSCNView is scaled via CGAffineTransform to show the
+            // zoomed center crop. This is purely visual — ARKit's pipeline
+            // (depth maps, intrinsics, neural input) stays at full FOV.
+            CameraPreviewView(
+                cameraManager: appState.cameraManager,
+                zoomFactor: appState.zoomFactor
+            )
+            .ignoresSafeArea()
 
             // Layer 2: FFP Reticle (scales with zoom, full bleed)
             // Depth zone brackets appear when bimodal detection is active

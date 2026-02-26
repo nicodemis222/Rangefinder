@@ -119,7 +119,18 @@ class RangingEngine: ObservableObject {
         guard !Task.isCancelled else { return }
 
         // 4. Read fused depth at crosshair
-        let depthEstimate = depthField.crosshairDepth
+        var depthEstimate = depthField.crosshairDepth
+
+        // 4a. Plausibility check: reject obviously impossible readings.
+        // ARKit's depth pipeline is unaffected by visual zoom (it always
+        // processes the full wide-angle FOV), so depth data is correct at
+        // any zoom level. This check catches rare calibration failures or
+        // sensor glitches that produce sub-0.1m readings.
+        if depthEstimate.isValid && depthEstimate.distanceMeters < 0.1 {
+            Logger.ranging.info("Plausibility reject: \(String(format: "%.3f", depthEstimate.distanceMeters))m is below minimum plausible range, src=\(depthEstimate.source.shortName)")
+            depthEstimate = .none
+        }
+
         guard depthEstimate.isValid else {
             // Even with no valid measurement, try Kalman prediction
             if let predicted = fgKalmanFilter.predict(at: frameData.timestamp),
@@ -136,14 +147,29 @@ class RangingEngine: ObservableObject {
             return
         }
 
-        // 5. Outlier rejection: check if this measurement is an outlier
+        // 5. Semantic source switch detection: if the semantic decision changed,
+        //    reset the foreground Kalman filter to avoid stale state contaminating
+        //    the new source's readings. MUST happen BEFORE outlier rejection so the
+        //    ring buffer is clean when the new source's reading arrives — otherwise
+        //    old readings from the previous source cause false outlier rejection.
+        let currentDecision = depthField.semanticDecision
+        if currentDecision != previousSemanticDecision {
+            if previousSemanticDecision != .none {
+                Logger.ranging.info("Semantic switch: \(self.previousSemanticDecision.rawValue) -> \(currentDecision.rawValue) — resetting fg Kalman")
+                fgKalmanFilter.reset()
+                depthRingBuffer.removeAll()
+            }
+            previousSemanticDecision = currentDecision
+        }
+
+        // 6. Outlier rejection: check if this measurement is an outlier
         //    relative to recent readings. At long range, occasional wild
         //    spikes can occur due to disparity noise amplification.
         let motionState = inclinationManager.motionState
         let rawDepth = depthEstimate.distanceMeters
         let filteredDepth = rejectOutlier(rawDepth, motionState: motionState)
 
-        // 6. Update Kalman filter with filtered measurement
+        // 7. Update Kalman filter with filtered measurement
         let kalmanDepth = fgKalmanFilter.update(
             measurement: filteredDepth,
             confidence: depthEstimate.confidence,
@@ -154,32 +180,19 @@ class RangingEngine: ObservableObject {
         // Tell IMU predictor that we consumed a measurement
         imuPredictor.onNewMeasurement()
 
-        // 7. Apply motion-aware smoothing on Kalman-filtered depth
+        // 8. Apply motion-aware smoothing on Kalman-filtered depth
         let smoothedDistance = smoother.smooth(
             newValue: kalmanDepth,
             motionState: motionState
         )
         let smoothedConfidence = smoother.smoothConfidence(depthEstimate.confidence)
 
-        // 8. Apply inclination correction
+        // 9. Apply inclination correction
         let pitchRad = inclinationManager.pitchRadians
         let (adjustedRange, correctionFactor) = InclinationCorrector.correct(
             lineOfSightRange: smoothedDistance,
             pitchRadians: pitchRad
         )
-
-        // 9. Semantic source switch detection: if the semantic decision changed,
-        //    reset the foreground Kalman filter to avoid stale state contaminating
-        //    the new source's readings.
-        let currentDecision = depthField.semanticDecision
-        if currentDecision != previousSemanticDecision {
-            if previousSemanticDecision != .none {
-                Logger.ranging.info("Semantic switch: \(self.previousSemanticDecision.rawValue) -> \(currentDecision.rawValue) — resetting fg Kalman")
-                fgKalmanFilter.reset()
-                depthRingBuffer.removeAll()
-            }
-            previousSemanticDecision = currentDecision
-        }
 
         // 10. Build foreground output
         currentRange = RangeOutput(

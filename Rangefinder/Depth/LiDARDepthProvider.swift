@@ -56,8 +56,8 @@ struct LiDARDepthProvider {
                     depth = ptr[x]
                 }
 
-                // LiDAR valid range: 0.1m to ~8m
-                if depth > 0.1 && depth < 10.0 && !depth.isNaN {
+                // LiDAR valid range: 0.1m to ~12m (iPhone 16/17 Pro Max in good light)
+                if depth > 0.1 && depth < 12.0 && !depth.isNaN {
                     samples.append(depth)
                 }
             }

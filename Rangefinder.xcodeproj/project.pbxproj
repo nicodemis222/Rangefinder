@@ -75,6 +75,7 @@
 		BBEAC28B7966537E3A5AE1D8 /* hallway_5m.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 6E0CA6BA8219E8FE0D4B962D /* hallway_5m.jpg */; };
 		BD89E9AA7867B2AFF3FC33BC /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB84D326739B4B020145B51E /* AppState.swift */; };
 		C0C57A3BE5FBC407ABC2ECAC /* TerrainRoutingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36FC82FB037BDB829FC7BC8C /* TerrainRoutingTests.swift */; };
+		C2AB393BCC11BD31D81CB09C /* RangefinderSweepTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B1E29D8DE8185B1CB43F67C /* RangefinderSweepTests.swift */; };
 		C3BCDF23D22421FAB01E857C /* InclinationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 775A3C45908EA33B113ED1EB /* InclinationManager.swift */; };
 		C5D94DAE0B6FD958DA618574 /* Errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34E75E4241D674421EE4605C /* Errors.swift */; };
 		C660401B1765E2CD0192D922 /* ZoomController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89BA5740F3A62B1D88CBD45D /* ZoomController.swift */; };
@@ -144,6 +145,7 @@
 		5C69C0B73EDF9AEA05CA8153 /* SRTMTileCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SRTMTileCacheTests.swift; sourceTree = "<group>"; };
 		64F46CD8C32CB8D9FE636064 /* RangingTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RangingTypes.swift; sourceTree = "<group>"; };
 		69F291088E45895C5F373D18 /* MapPiPView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapPiPView.swift; sourceTree = "<group>"; };
+		6B1E29D8DE8185B1CB43F67C /* RangefinderSweepTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RangefinderSweepTests.swift; sourceTree = "<group>"; };
 		6D2163B28D700AAB017B8353 /* DepthSourceConfidence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthSourceConfidence.swift; sourceTree = "<group>"; };
 		6E0CA6BA8219E8FE0D4B962D /* hallway_5m.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = hallway_5m.jpg; sourceTree = "<group>"; };
 		6F8ED84318E6196A32D64E42 /* DepthKalmanFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthKalmanFilterTests.swift; sourceTree = "<group>"; };
@@ -309,6 +311,7 @@
 				0E8DE7407ADDFCBDB92BD943 /* InclinationCorrectorTests.swift */,
 				4D1A674384D72187F4BBD29A /* MonteCarloFusionTests.swift */,
 				F287BB72C984C3DC37613047 /* MotionAwareSmootherTests.swift */,
+				6B1E29D8DE8185B1CB43F67C /* RangefinderSweepTests.swift */,
 				CF53A389BDF937C514CDDB5C /* ReticleGeometryTests.swift */,
 				F73998DE42254B4AA4203639 /* SceneClassifierTests.swift */,
 				A5CD96ACC2D0CB1E55F2E04D /* SemanticSelectionTests.swift */,
@@ -645,6 +648,7 @@
 				436FC15D5C4E61720249752F /* InclinationCorrectorTests.swift in Sources */,
 				8B9DAD00F2DAE1A4037D1D28 /* MonteCarloFusionTests.swift in Sources */,
 				5C5D4B72F28E97EED8FA20D8 /* MotionAwareSmootherTests.swift in Sources */,
+				C2AB393BCC11BD31D81CB09C /* RangefinderSweepTests.swift in Sources */,
 				2D9F460487BE15A4ED3742E2 /* ReticleGeometryTests.swift in Sources */,
 				67E0E1261A58F55E110D865D /* SRTMTileCacheTests.swift in Sources */,
 				8C2F1582D77629615114B5CB /* SceneClassifierTests.swift in Sources */,

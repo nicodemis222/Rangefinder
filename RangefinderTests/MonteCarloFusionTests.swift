@@ -133,7 +133,7 @@ struct FusionSimulator {
             }
         }
 
-        // --- Neural (calibrated, hard-capped at 50m) ---
+        // --- Neural (calibrated, hard-capped at 150m) ---
         if let neuralD = neuralReading, neuralD > 0.1,
            neuralD <= AppConfiguration.neuralHardCapMeters {
             let distW = DepthSourceConfidence.neural(distanceM: neuralD)
@@ -476,7 +476,18 @@ struct SensorNoiseModel {
         else if pitchF > 0.5 { baseConf = 0.20 + (pitchF - 0.5) / 0.5 * 0.25 }
         else { baseConf = max(0.05, 0.20 * (pitchF / 0.5)) }
 
-        let slopePenalty: Float = pitchF <= 3.0 ? 1.0 : max(0.4, 1.0 - (pitchF - 3.0) * 0.08)
+        // Relaxed slope penalty matching GeometricRangeEstimator:
+        // No penalty <5°, 5-12°: 1.0 → 0.5, 12-20°: 0.5 → 0.15, >20°: floor at 0.10
+        let slopePenalty: Float
+        if pitchF <= 5.0 {
+            slopePenalty = 1.0
+        } else if pitchF <= 12.0 {
+            slopePenalty = 1.0 - (pitchF - 5.0) * 0.0714
+        } else if pitchF <= 20.0 {
+            slopePenalty = 0.50 - (pitchF - 12.0) * 0.04375
+        } else {
+            slopePenalty = 0.10
+        }
 
         return (distance, baseConf * slopePenalty)
     }
@@ -918,7 +929,7 @@ final class MonteCarloFusionTests: XCTestCase {
         // LiDAR: check within active range (0.3-10m), skip the 0→0.98 onset at 0.3m
         var prevLidar = DepthSourceConfidence.lidar(distanceM: 0.35)
         var d: Float = 0.45
-        while d <= 10.0 {
+        while d <= 12.0 {
             let cur = DepthSourceConfidence.lidar(distanceM: d)
             let jump = abs(cur - prevLidar)
             XCTAssertLessThan(jump, 0.05,
@@ -927,11 +938,11 @@ final class MonteCarloFusionTests: XCTestCase {
             d += step
         }
 
-        // Neural: check within active range (2-49.5m), skip the hard cap at 50m.
-        // Beyond 50m neural returns 0.0 (intentional hard cap, not a continuity bug).
+        // Neural: check within active range (2-149.5m), skip the hard cap at 150m.
+        // Beyond 150m neural returns 0.0 (intentional hard cap, not a continuity bug).
         var prevNeural = DepthSourceConfidence.neural(distanceM: 2.0)
         d = 2.1
-        while d <= 49.5 {
+        while d <= 149.5 {
             let cur = DepthSourceConfidence.neural(distanceM: d)
             let jump = abs(cur - prevNeural)
             XCTAssertLessThan(jump, 0.06,
@@ -2025,7 +2036,7 @@ final class MonteCarloFusionTests: XCTestCase {
                 // Forest with degraded GPS is genuinely hard — geometric dominates
                 // (~42%) but makes large errors on sloped terrain under canopy.
                 // DEM only dominates 25% due to poor GPS. This is a known limitation.
-                // Neural hard cap at 50m slightly increases tail errors in 50-80m zone.
+                // Neural hard cap at 150m — neural contributes to the 50-150m zone now.
                 maxAcceptableAvgError: 45.0,
                 maxAcceptableP95Error: 98.0,
                 description: "Moderate slopes, degraded GPS (canopy), mixed sources"
@@ -2191,7 +2202,7 @@ final class MonteCarloFusionTests: XCTestCase {
                 // Hilly terrain mean (9.8%) and P50 (0.2%) are excellent.
                 // The P95 tail comes from worst-case steep slope + no object scenarios
                 // where geometric is unreliable and DEM has heading error on slopes.
-                // Neural hard cap at 50m slightly increases tail errors in 50-100m zone.
+                // Neural hard cap at 150m — neural contributes to the 50-150m zone now.
                 maxAcceptableAvgError: 25.0,
                 maxAcceptableP95Error: 98.0,
                 description: "Moderate slopes, good GPS, mixed sources"

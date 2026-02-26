@@ -65,6 +65,14 @@ class UnifiedDepthField: ObservableObject {
     /// Updated every frame from InclinationManager via RangingEngine.
     var currentHeadingDegrees: Double = 0
 
+    /// Current camera zoom factor (1.0 = no zoom).
+    /// Used to convert screen-center crosshair position to the correct
+    /// coordinate in the wide-angle LiDAR/sceneDepth map.
+    /// ARKit's sceneDepth always covers the base wide-angle camera FOV,
+    /// so at 25x zoom the crosshair corresponds to a tiny region near
+    /// the center of the depth map, NOT (0.5, 0.5).
+    var currentZoomFactor: CGFloat = 1.0
+
     /// Target priority mode: near (first target) or far (last target).
     /// When far-target mode is active and the depth field shows bimodal
     /// distribution (foreground occluder + background terrain), the semantic
@@ -137,6 +145,9 @@ class UnifiedDepthField: ObservableObject {
         guard !isProcessing else { return }
         isProcessing = true
         defer { isProcessing = false }
+
+        // 0. Update zoom factor for depth map coordinate mapping
+        currentZoomFactor = frameData.zoomFactor
 
         // 1. Update LiDAR data (instant — just stores the buffer pointer)
         if let lidarDepth = frameData.lidarDepthMap {
@@ -242,6 +253,11 @@ class UnifiedDepthField: ObservableObject {
         // --- Gather All Source Readings ---
 
         // --- LiDAR ---
+        // ARKit's sceneDepth always covers the full wide-angle FOV, unaffected
+        // by videoZoomFactor. The center pixel IS the correct depth for the
+        // crosshair target. At very high zoom (10x+), the 5x5 median patch
+        // covers a larger angular area than the user's visible crosshair, so
+        // apply a mild resolution penalty.
         if let lidarMap = latestLiDARDepthMap {
             if let lidarDepth = LiDARDepthProvider.sampleDepth(from: lidarMap, at: screenPoint) {
                 let lidarConfidence: Float
@@ -251,8 +267,20 @@ class UnifiedDepthField: ObservableObject {
                     lidarConfidence = 0.8
                 }
 
+                // Mild zoom penalty: at extreme zoom (10x+) the 5x5 LiDAR patch
+                // subtends a significant fraction of the user's visible field,
+                // potentially mixing depths from different objects.
+                let lidarZoomPenalty: Float
+                let zoom = Float(currentZoomFactor)
+                if zoom <= 10.0 {
+                    lidarZoomPenalty = 1.0  // LiDAR patch is fine up to 10x
+                } else {
+                    // Gentle: 1.0 → 0.7 from 10x to 25x
+                    lidarZoomPenalty = max(0.7, 1.0 - (zoom - 10.0) * 0.02)
+                }
+
                 let distanceWeight = DepthSourceConfidence.lidar(distanceM: lidarDepth)
-                let weight = distanceWeight * lidarConfidence
+                let weight = distanceWeight * lidarConfidence * lidarZoomPenalty
 
                 if weight > 0.01 {
                     entries.append(SourceEntry(source: .lidar, depth: lidarDepth, weight: weight))
@@ -261,6 +289,11 @@ class UnifiedDepthField: ObservableObject {
         }
 
         // --- Neural Depth (calibrated) with hard cap ---
+        // ARKit's capturedImage is always at full wide-angle FOV (unaffected by
+        // videoZoomFactor), so the neural model processes the same unzoomed image
+        // regardless of visual zoom. The depth map center IS the correct depth
+        // for the crosshair target. Neural zoom penalty is very mild — only at
+        // extreme zoom where depth map resolution limits precision.
         if let neuralMap = latestNeuralDepthMap {
             if let rawNeural = metricEstimator.sampleDepth(from: neuralMap, at: screenPoint) {
                 let calibratedDepth = calibrator.calibrate(rawNeural)
@@ -269,7 +302,17 @@ class UnifiedDepthField: ObservableObject {
                 // Log periodically
                 if frameCount % 60 == 1 {
                     let calAge = calibrator.calibrationAge(currentTimestamp: timestamp)
-                    Logger.depth.info("Neural semantic: raw=\(String(format: "%.3f", rawNeural)) calibrated=\(String(format: "%.3f", calibratedDepth)) calConf=\(String(format: "%.2f", calConf)) calAge=\(String(format: "%.1f", calAge))s model=\(String(describing: self.calibrator.modelType))")
+                    Logger.depth.info("Neural semantic: raw=\(String(format: "%.3f", rawNeural)) calibrated=\(String(format: "%.3f", calibratedDepth)) calConf=\(String(format: "%.2f", calConf)) calAge=\(String(format: "%.1f", calAge))s model=\(String(describing: self.calibrator.modelType)) zoom=\(String(format: "%.1f", Double(self.currentZoomFactor)))x")
+                }
+
+                // Mild zoom penalty: at extreme zoom (15x+) the neural depth map's
+                // 5x5 patch covers a larger angular area relative to the user's view.
+                let zoomPenalty: Float
+                let zoom = Float(currentZoomFactor)
+                if zoom <= 15.0 {
+                    zoomPenalty = 1.0  // Neural is fine up to 15x (unaffected by visual zoom)
+                } else {
+                    zoomPenalty = max(0.7, 1.0 - (zoom - 15.0) * 0.03)  // 1.0 → 0.7 at 25x
                 }
 
                 // Hard cap: skip neural beyond 50m
@@ -280,7 +323,7 @@ class UnifiedDepthField: ObservableObject {
                         calibrationConfidence: calConf
                     )
                     let distanceWeight = DepthSourceConfidence.neural(distanceM: calibratedDepth)
-                    let weight = distanceWeight * calQuality
+                    let weight = distanceWeight * calQuality * zoomPenalty
 
                     if weight > 0.01 {
                         entries.append(SourceEntry(source: .neural, depth: calibratedDepth, weight: weight))

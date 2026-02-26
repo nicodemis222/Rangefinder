@@ -263,6 +263,12 @@ struct DepthKalmanFilter {
     ///
     /// Example: at 200m, a 1% disparity change → ~4m depth swing.
     /// At 500m, the same 1% change → ~25m swing.
+    ///
+    /// The distanceFactor is capped at 25 (was 100) to keep the Kalman
+    /// gain responsive at long range. At 500m with the old cap of 100:
+    ///   R = 0.3 × 20 × 100 = 600 → Kalman gain ≈ 0 (filter ignores measurements!)
+    /// With cap of 25:
+    ///   R = 0.3 × 20 × 25 = 150 → Kalman gain ≈ 0.1 (filter stays responsive)
     private func measurementNoise(confidence: Float, depth: Double) -> Double {
         let confFactor = 1.0 / max(0.05, Double(confidence))
 
@@ -281,11 +287,11 @@ struct DepthKalmanFilter {
         } else if depth < 200 {
             // Quadratic scaling kicks in: 100m→4, 200m→16
             let normalized = depth / 50.0  // 2.0 at 100m, 4.0 at 200m
-            distanceFactor = normalized * normalized
+            distanceFactor = min(25.0, normalized * normalized)
         } else {
-            // Beyond 200m: heavy noise — trust Kalman prediction more
+            // Beyond 200m: capped at 25 to keep Kalman responsive
             let normalized = depth / 50.0  // 4.0 at 200m, 10.0 at 500m
-            distanceFactor = min(100.0, normalized * normalized)
+            distanceFactor = min(25.0, normalized * normalized)
         }
 
         return measurementNoiseBase * confFactor * distanceFactor

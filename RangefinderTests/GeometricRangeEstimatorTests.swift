@@ -101,7 +101,7 @@ final class GeometricRangeEstimatorTests: XCTestCase {
     // MARK: - Slope Risk Penalty
 
     func testSteepPitchReducedConfidence() {
-        // At steep pitch (>3°), slope risk penalty should reduce confidence
+        // At steep pitch (>5°), slope risk penalty should reduce confidence
         var estimator = GeometricRangeEstimator()
         estimator.cameraHeight = 1.5
 
@@ -109,7 +109,7 @@ final class GeometricRangeEstimatorTests: XCTestCase {
         let shallowPitch = -2.0 * .pi / 180.0
         let shallow = estimator.estimate(pitchRadians: shallowPitch)
 
-        // 8.7° pitch: D=9.8m, heavy slope penalty
+        // 8.7° pitch: D=9.8m, moderate slope penalty
         let steepPitch = -8.7 * .pi / 180.0
         let steep = estimator.estimate(pitchRadians: steepPitch)
 
@@ -117,46 +117,48 @@ final class GeometricRangeEstimatorTests: XCTestCase {
         XCTAssertNotNil(steep)
 
         // Steep should have lower confidence despite being "closer"
-        // because slope penalty applies at >3°
+        // because slope penalty applies at >5°
         XCTAssertLessThan(steep!.confidence, shallow!.confidence,
             "Steep pitch should have reduced confidence due to slope penalty")
     }
 
     func testSlopePenaltyAt8Point7Degrees() {
-        // At -8.7°, penalty = max(0.4, 1.0 - (8.7 - 3.0) * 0.08) = max(0.4, 0.544) = 0.544
+        // At -8.7°, penalty is in the 5-12° bracket:
+        //   1.0 - (8.7 - 5.0) * 0.0714 = 1.0 - 0.264 = 0.736
         // Base confidence at 8.7° = 0.85 (excellent: >5°)
-        // Final: 0.85 * 0.544 ≈ 0.462
+        // Final: 0.85 * 0.736 ≈ 0.626
         var estimator = GeometricRangeEstimator()
         estimator.cameraHeight = 1.5
         let pitchRad = -8.7 * .pi / 180.0
         let result = estimator.estimate(pitchRadians: pitchRad)
         XCTAssertNotNil(result)
-        XCTAssertEqual(result!.confidence, 0.462, accuracy: 0.05,
-            "8.7° pitch should have ~0.46 confidence (slope-penalized)")
+        XCTAssertEqual(result!.confidence, 0.626, accuracy: 0.05,
+            "8.7° pitch should have ~0.63 confidence (relaxed slope penalty)")
     }
 
-    func testNoSlopePenaltyBelow3Degrees() {
+    func testNoSlopePenaltyBelow5Degrees() {
         var estimator = GeometricRangeEstimator()
         estimator.cameraHeight = 1.5
-        // 2° pitch: should NOT have slope penalty
+        // 2° pitch: should NOT have slope penalty (threshold is 5°)
         let pitchRad = -2.0 * .pi / 180.0
         let result = estimator.estimate(pitchRadians: pitchRad)
         XCTAssertNotNil(result)
         // At 2°: baseConfidence is in the 2.0-5.0° bracket:
         // t = (2.0 - 2.0) / 3.0 = 0; base = 0.70 + 0 * 0.15 = 0.70
-        // slopePenalty = 1.0 (no penalty)
+        // slopePenalty = 1.0 (no penalty: below 5°)
         XCTAssertEqual(result!.confidence, 0.70, accuracy: 0.05)
     }
 
-    func testSlopePenaltyFloorAt0Point4() {
-        // At very steep angles (e.g. 15°), penalty should floor at 0.4
+    func testSlopePenaltyModerateAt15Degrees() {
+        // At 15°, penalty is in the 12-20° bracket:
+        //   0.50 - (15.0 - 12.0) * 0.04375 = 0.50 - 0.131 = 0.369
+        // Base confidence at 15° = 0.85
+        // Final: 0.85 * 0.369 ≈ 0.313
         var estimator = GeometricRangeEstimator()
         estimator.cameraHeight = 1.5
         let pitchRad = -15.0 * .pi / 180.0
         let result = estimator.estimate(pitchRadians: pitchRad)
         XCTAssertNotNil(result)
-        // penalty = max(0.4, 1.0 - (15 - 3) * 0.08) = max(0.4, 0.04) = 0.4
-        // base = 0.85 * 0.4 = 0.34
-        XCTAssertEqual(result!.confidence, 0.34, accuracy: 0.05)
+        XCTAssertEqual(result!.confidence, 0.313, accuracy: 0.05)
     }
 }
