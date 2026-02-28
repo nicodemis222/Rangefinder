@@ -16,6 +16,7 @@
 		091ABE36A647EAE9046E3E84 /* highway_vehicles_400m.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 822D822239974489B835B848 /* highway_vehicles_400m.jpg */; };
 		0F21629641B1C9C536878C42 /* DepthPro_Lite.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = 13FCF5D6C84F6E33BA34930E /* DepthPro_Lite.mlpackage */; };
 		10E04562517CE5815D73A356 /* ContinuousCalibrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E967CFA49ED5900ABD154FE /* ContinuousCalibrator.swift */; };
+		135503B25EB1A150ECFC8870 /* GroundTruthDatasetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A465900ABFF520DC7EBBC691 /* GroundTruthDatasetTests.swift */; };
 		14B61782594ECE65A2CB65F4 /* HoldoverIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED35344BD90334679135FF54 /* HoldoverIndicator.swift */; };
 		16F483B6930E677D98CC39EB /* forest_path_15m.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 212F0F1FD68987B85D049821 /* forest_path_15m.jpg */; };
 		171CD56BE2B93F895A0E30E3 /* IMUDepthPredictor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C2A7D0EE1931DACCD843083 /* IMUDepthPredictor.swift */; };
@@ -31,6 +32,7 @@
 		3DAAC3681AD193E3BC617839 /* sky_upward.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 97451B62B9DE8CB50CD933A0 /* sky_upward.jpg */; };
 		42588C251FEB932331B40974 /* Configuration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B081E3470EF230871AEE868 /* Configuration.swift */; };
 		436FC15D5C4E61720249752F /* InclinationCorrectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E8DE7407ADDFCBDB92BD943 /* InclinationCorrectorTests.swift */; };
+		4D94A3B058458BB86FD2A92C /* GroundTruthTestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5F4BCA93F756AFDC76E39A5 /* GroundTruthTestHelpers.swift */; };
 		4DA21E4F86474BFD2435D3D7 /* LiDARDepthProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A0C1561834796EF549BDAA /* LiDARDepthProvider.swift */; };
 		4F395992745D7C910091EF03 /* UnifiedDepthField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01DD2C648012046BBC297079 /* UnifiedDepthField.swift */; };
 		52365BE05D329733EDCD62CA /* SRTMTileCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 321F8752C585E618AF93172B /* SRTMTileCache.swift */; };
@@ -38,6 +40,7 @@
 		5C5D4B72F28E97EED8FA20D8 /* MotionAwareSmootherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F287BB72C984C3DC37613047 /* MotionAwareSmootherTests.swift */; };
 		5D6849EA3E27E1FD3B56B0A2 /* parking_lot_100m.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 4E42604E8B6CE0C66F660BF1 /* parking_lot_100m.jpg */; };
 		638E1D642663F266973B031A /* StadiametricRangingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AFA62DEC333AD5820182D69 /* StadiametricRangingTests.swift */; };
+		67667D6A5FCA04466E50A348 /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = E3E41109E99C8F47CA71D519 /* manifest.json */; };
 		67E0E1261A58F55E110D865D /* SRTMTileCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C69C0B73EDF9AEA05CA8153 /* SRTMTileCacheTests.swift */; };
 		6851E3E62211ECF9FC8864D8 /* mountain_peak_1500m.jpg in Resources */ = {isa = PBXBuildFile; fileRef = DCC86DCCE94B9D07241C9E6C /* mountain_peak_1500m.jpg */; };
 		6CB1DC18F3E06D131B6385CD /* DepthSourceConfidenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4323B73911B5FBD30F5EDC5 /* DepthSourceConfidenceTests.swift */; };
@@ -59,6 +62,7 @@
 		96BB853586A33D4E98E32C41 /* mountain_valley_500m.jpg in Resources */ = {isa = PBXBuildFile; fileRef = E523E7F3D0E4C750BB8CE977 /* mountain_valley_500m.jpg */; };
 		9E578D7B1B8C1C5338F676F5 /* HUDOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E63D3077D0F2503633E15F9 /* HUDOverlayView.swift */; };
 		9EB7BA9EB349CDA8D3D55B57 /* BackgroundRangeChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCFF0AA6847071C970917C95 /* BackgroundRangeChip.swift */; };
+		A2427A42DBE0F9C42020F4CD /* ForegroundOccluderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 458C420F13B0EE3AD66312F3 /* ForegroundOccluderTests.swift */; };
 		A6B30ADE77EA6849FE0FB10C /* KnownObjectDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AD8F6E9F8AF25744FE529CD /* KnownObjectDatabase.swift */; };
 		A73E1E3BB280C8546260A7AD /* BallisticsSolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17A421AC6DD8AF53FCAEF9E0 /* BallisticsSolverTests.swift */; };
 		A764D7F4028E066197A9A764 /* OperatorGuidanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87DA22642114FFDED3742FFB /* OperatorGuidanceView.swift */; };
@@ -139,6 +143,7 @@
 		412B3F5488ADD4340775BF5E /* Rangefinder.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Rangefinder.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		415DB21AB3EFA9FA918BE46D /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
 		44AE08802FEE902490AA9437 /* DepthZoneBracketTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthZoneBracketTests.swift; sourceTree = "<group>"; };
+		458C420F13B0EE3AD66312F3 /* ForegroundOccluderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForegroundOccluderTests.swift; sourceTree = "<group>"; };
 		4A9AEEBBE440FFB8C8D318A7 /* FFPReticleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FFPReticleView.swift; sourceTree = "<group>"; };
 		4D1A674384D72187F4BBD29A /* MonteCarloFusionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonteCarloFusionTests.swift; sourceTree = "<group>"; };
 		4E42604E8B6CE0C66F660BF1 /* parking_lot_100m.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = parking_lot_100m.jpg; sourceTree = "<group>"; };
@@ -169,6 +174,7 @@
 		995C9F23FD68FAD79A78408B /* DEMRaycastEstimatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DEMRaycastEstimatorTests.swift; sourceTree = "<group>"; };
 		9C7F636AF8F0AF422FC8EE1D /* IMUDepthPredictorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IMUDepthPredictorTests.swift; sourceTree = "<group>"; };
 		A1B0BAB2CCB8E8555D84C47D /* ReticleGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReticleGeometry.swift; sourceTree = "<group>"; };
+		A465900ABFF520DC7EBBC691 /* GroundTruthDatasetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroundTruthDatasetTests.swift; sourceTree = "<group>"; };
 		A5CD96ACC2D0CB1E55F2E04D /* SemanticSelectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticSelectionTests.swift; sourceTree = "<group>"; };
 		A64DCA77EC66AEF2DFC93FDC /* GeometricRangeEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeometricRangeEstimator.swift; sourceTree = "<group>"; };
 		A8529FBC6DE7DC4D0C6E72D5 /* RangingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RangingEngine.swift; sourceTree = "<group>"; };
@@ -194,7 +200,9 @@
 		DCC86DCCE94B9D07241C9E6C /* mountain_peak_1500m.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = mountain_peak_1500m.jpg; sourceTree = "<group>"; };
 		DD963BD33EDA51BD911BC7AA /* DepthKalmanFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthKalmanFilter.swift; sourceTree = "<group>"; };
 		DE9758DC799E7EABA377336C /* ConfidenceBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfidenceBadge.swift; sourceTree = "<group>"; };
+		E3E41109E99C8F47CA71D519 /* manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = manifest.json; sourceTree = "<group>"; };
 		E523E7F3D0E4C750BB8CE977 /* mountain_valley_500m.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = mountain_valley_500m.jpg; sourceTree = "<group>"; };
+		E5F4BCA93F756AFDC76E39A5 /* GroundTruthTestHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroundTruthTestHelpers.swift; sourceTree = "<group>"; };
 		ED35344BD90334679135FF54 /* HoldoverIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoldoverIndicator.swift; sourceTree = "<group>"; };
 		F287BB72C984C3DC37613047 /* MotionAwareSmootherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionAwareSmootherTests.swift; sourceTree = "<group>"; };
 		F2DD9984519EBEF08205101B /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
@@ -211,6 +219,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+		0EBA0074606DC0C0A743EE8F /* GroundTruthData */ = {
+			isa = PBXGroup;
+			children = (
+				E3E41109E99C8F47CA71D519 /* manifest.json */,
+			);
+			path = GroundTruthData;
+			sourceTree = "<group>";
+		};
 		1CB382489F358DF21F3E6598 /* Core */ = {
 			isa = PBXGroup;
 			children = (
@@ -305,7 +321,10 @@
 				B4323B73911B5FBD30F5EDC5 /* DepthSourceConfidenceTests.swift */,
 				44AE08802FEE902490AA9437 /* DepthZoneBracketTests.swift */,
 				BA449D3EADEDB72A52E553DF /* DisagreementPenaltyTests.swift */,
+				458C420F13B0EE3AD66312F3 /* ForegroundOccluderTests.swift */,
 				2C28DB2D2E7C67287863D0EB /* GeometricRangeEstimatorTests.swift */,
+				A465900ABFF520DC7EBBC691 /* GroundTruthDatasetTests.swift */,
+				E5F4BCA93F756AFDC76E39A5 /* GroundTruthTestHelpers.swift */,
 				B16016074CE647491CF56FBC /* ImageSimulationTests.swift */,
 				9C7F636AF8F0AF422FC8EE1D /* IMUDepthPredictorTests.swift */,
 				0E8DE7407ADDFCBDB92BD943 /* InclinationCorrectorTests.swift */,
@@ -318,6 +337,7 @@
 				5C69C0B73EDF9AEA05CA8153 /* SRTMTileCacheTests.swift */,
 				8AFA62DEC333AD5820182D69 /* StadiametricRangingTests.swift */,
 				36FC82FB037BDB829FC7BC8C /* TerrainRoutingTests.swift */,
+				0EBA0074606DC0C0A743EE8F /* GroundTruthData */,
 				FEB979378E73FC50CF50D124 /* TestImages */,
 			);
 			path = RangefinderTests;
@@ -554,6 +574,7 @@
 				091ABE36A647EAE9046E3E84 /* highway_vehicles_400m.jpg in Resources */,
 				AC22C8BB62C5F449C0A2FE77 /* hilltop_terrain_1000m.jpg in Resources */,
 				D0C56E19961A7E8BDC5F98B4 /* indoor_desk_1m.jpg in Resources */,
+				67667D6A5FCA04466E50A348 /* manifest.json in Resources */,
 				6851E3E62211ECF9FC8864D8 /* mountain_peak_1500m.jpg in Resources */,
 				96BB853586A33D4E98E32C41 /* mountain_valley_500m.jpg in Resources */,
 				E122EC82AD56C9FA91516455 /* open_field_person_200m.jpg in Resources */,
@@ -642,7 +663,10 @@
 				6CB1DC18F3E06D131B6385CD /* DepthSourceConfidenceTests.swift in Sources */,
 				81282BC0D53CDCD2A48F1AA5 /* DepthZoneBracketTests.swift in Sources */,
 				1E310B5A1CC24A566256F1B9 /* DisagreementPenaltyTests.swift in Sources */,
+				A2427A42DBE0F9C42020F4CD /* ForegroundOccluderTests.swift in Sources */,
 				88963512202D86DAD7EC1579 /* GeometricRangeEstimatorTests.swift in Sources */,
+				135503B25EB1A150ECFC8870 /* GroundTruthDatasetTests.swift in Sources */,
+				4D94A3B058458BB86FD2A92C /* GroundTruthTestHelpers.swift in Sources */,
 				A938530246CA5285A8339E9C /* IMUDepthPredictorTests.swift in Sources */,
 				E12BF19175EB67386F1BFBFB /* ImageSimulationTests.swift in Sources */,
 				436FC15D5C4E61720249752F /* InclinationCorrectorTests.swift in Sources */,

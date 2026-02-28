@@ -4,7 +4,7 @@
 
 Rangefinder is an iOS application that turns an iPhone into a multi-source digital rangefinder. It uses **semantic source selection** to choose the best depth source per frame from six available sources — LiDAR, neural depth estimation, geometric ground-plane ranging, DEM terrain ray-casting, object-size ranging, and user-directed stadiametric bracket ranging — with multi-hypothesis tracking from 0 to 2000 meters.
 
-The interface presents a configurable reticle overlay (mil-dot, crosshair, or rangefinder) on the live camera feed with real-time range readout, confidence indicators, semantic source decision label, background hypothesis chip, source blend visualization, stadiametric bracket overlay, DEM map picture-in-picture, compass bearing, operator guidance coaching, inclination correction, and optional ballistic holdover computation.
+The interface presents a configurable reticle overlay (mil-dot, bracket, or rangefinder) on the live camera feed with real-time range readout, confidence indicators, semantic source decision label, background hypothesis chip, source blend visualization, stadiametric bracket overlay, DEM map picture-in-picture, compass bearing, operator guidance coaching, inclination correction, and optional ballistic holdover computation.
 
 ---
 
@@ -84,7 +84,7 @@ xcodebuild test \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
 ```
 
-There are 289 unit tests covering all depth sources, semantic source selection, confidence curves, dual Kalman filtering, calibration, scene classification, geometric estimation, DEM ray-casting, stadiametric ranging, terrain routing, depth zone brackets, Monte Carlo validation, and comprehensive distance sweep testing (100–1500 yards).
+There are 312 unit tests (5 skipped Tier 2/3) covering all depth sources, semantic source selection, foreground occluder detection, confidence curves, dual Kalman filtering, calibration, scene classification, geometric estimation, DEM ray-casting, stadiametric ranging, terrain routing, depth zone brackets, Monte Carlo validation, comprehensive distance sweep testing (100–1500 yards), and ground truth dataset validation (10,000 samples from ARKitScenes + DIODE with laser-scanner ground truth).
 
 ---
 
@@ -135,8 +135,10 @@ Rangefinder/
 │   ├── MotionAwareSmoother.swift   Adaptive smoothing by motion state
 │   ├── BallisticsSolver.swift      G1 drag model + holdover
 │   └── OperatorGuidanceEngine.swift IMU stability, breathing, coaching hints
+├── Scripts/                Dataset preparation and tooling
+│   └── prepare_ground_truth_dataset.py  Download/preprocess ground truth datasets (ARKitScenes, DIODE)
 ├── Reticle/                Configurable reticle overlay (3 styles)
-│   ├── FFPReticleView.swift        First focal plane reticle rendering (mil-dot/crosshair/rangefinder)
+│   ├── FFPReticleView.swift        First focal plane reticle rendering (mil-dot/bracket/rangefinder)
 │   ├── ReticleConfiguration.swift  Style/color/appearance settings + ReticleStyle enum
 │   └── ReticleGeometry.swift       Mil-to-pixel conversion
 ├── Sensors/                Hardware sensor interfaces
@@ -211,7 +213,7 @@ Tap the menu icon (☰) to open settings:
 
 - **Display Unit**: yards or meters
 - **Camera Height**: adjustable for prone (0.3m), standing (1.5m), tripod, or vehicle mounting
-- **Reticle Style**: MIL-DOT (NATO standard with dots/hashes), CROSSHAIR (clean, maximum clarity), RANGEFINDER (duplex + Vectronix-style ranging brackets)
+- **Reticle Style**: MIL-DOT (NATO standard with dots/hashes), BRACKET (L-shaped corner marks, red default, maximum visibility), RANGEFINDER (duplex + Vectronix-style ranging brackets)
 - **Reticle Color**: phosphor green, red, amber, purple (NVG/DAY/RED presets)
 - **Reticle Options**: line width, outline toggle; mil-dot style adds filled dots, hash marks, mil labels toggles
 - **Ballistics**: enable/disable, caliber selection (.308 Win, 5.56 NATO, 6.5 CM, .300 WM, .338 NM, .338 LM), zero distance
@@ -316,7 +318,7 @@ Three configurable reticle styles, all rendered in First Focal Plane (FFP) — t
 | Style | Description | Best For |
 |---|---|---|
 | MIL-DOT | NATO standard with 1-mil dots + optional half-mil hashes + mil labels | Angular measurement, wind holds, range estimation by subtension |
-| CROSSHAIR | Clean duplex crosshair, no marks | Maximum target clarity, digital-only ranging |
+| BRACKET | L-shaped corner marks (1.5 mil) with center reference ticks, red default | Maximum target visibility, unobstructed center |
 | RANGEFINDER | Duplex crosshair + Vectronix-style L-shaped corner brackets (2×2 mil square) | Quick angular size reference, target framing |
 
 All reticle styles include always-on depth zone brackets that show the relationship between the crosshair reading and DEM terrain distance.
@@ -354,7 +356,7 @@ When enabled, the ballistics solver computes holdover for the selected caliber u
 
 ## Test Coverage
 
-289 unit tests across 21 test files:
+312 unit tests across 24 test files (5 Tier 2/3 tests skipped without dataset):
 
 | Test File | Count | Coverage Area |
 |---|---|---|
@@ -364,6 +366,7 @@ When enabled, the ballistics solver computes holdover for the selected caliber u
 | DepthKalmanFilterTests | — | Kalman predict/update, motion adaptation, distance factor cap |
 | DepthSourceConfidenceTests | — | All 6 confidence curves, neural hard cap at 150m, DEM long-range |
 | DisagreementPenaltyTests | — | Source outlier suppression logic |
+| **ForegroundOccluderTests** | 11 | Foreground occluder detection: all-conditions-met, near-mode retains LiDAR, not-bimodal, DEM-disagrees, indoor-no-DEM, near-peak edge cases, semanticSelect integration with bimodal far/near modes, DEM threshold relaxation with/without bimodal corroboration |
 | GeometricRangeEstimatorTests | — | Ground-plane model, slope penalty |
 | IMUDepthPredictorTests | — | Motion-based prediction |
 | InclinationCorrectorTests | — | Cosine correction, angle formatting |
@@ -379,3 +382,5 @@ When enabled, the ballistics solver computes holdover for the selected caliber u
 | **StadiametricRangingTests** | 12 | Pinhole formula at various ranges, golf pin preset (2.13m), zero-pixel edge case, target presets, focal length independence, pixel-error sensitivity |
 | **RangefinderSweepTests** | 8 | General ranging sweep 100–1500 yds (57 bands × 3 operators), golf pin stadiametric sweep 40–300 yds at 1×/5×/8× zoom, multi-operator repeatability (CV < 15%), environmental condition matrix (432 combos), source handoff stress test |
 | SRTMDownloadTests | — | SRTM region manager, tile download |
+| **GroundTruthDatasetTests** | 12 | 10K-sample ground truth validation: manifest integrity, distribution coverage (6 distance bands), confidence curve dead zone detection, source selection distribution, fusion accuracy per band (AbsRel/P50/P90/catastrophic), 50K Monte Carlo statistical accuracy, LiDAR vs laser-scanner ground truth, real depth map sampling (Tier 2), bimodal detection (Tier 2), depth map noise (Tier 2), neural model accuracy (Tier 3), full pipeline E2E (Tier 3) |
+| GroundTruthTestHelpers | — | Data models (GroundTruthSample/Manifest), BandStatistics, manifest loader, sample-to-FusionScenario mapper, band report formatter |

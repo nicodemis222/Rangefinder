@@ -7,7 +7,7 @@
 //
 //  Reticle styles:
 //  - milDot:       Standard NATO mil-dot with dots at 1-mil intervals + half-mil hashes
-//  - simpleCross:  Clean crosshair — no dots/hashes. Maximum clarity. Digital data only.
+//  - bracket:      Bracket reticle — L-shaped corner marks maximize target visibility. Red default.
 //  - rangefinder:  Duplex crosshair with center gap and corner brackets (Vectronix/VECTOR style)
 //
 
@@ -80,7 +80,7 @@ struct DepthZoneOverlay: Equatable {
 
 enum ReticleStyle: String, CaseIterable, Identifiable {
     case milDot = "MIL-DOT"
-    case simpleCross = "CROSSHAIR"
+    case bracket = "BRACKET"
     case rangefinder = "RANGEFINDER"
 
     var id: String { rawValue }
@@ -88,7 +88,7 @@ enum ReticleStyle: String, CaseIterable, Identifiable {
     var description: String {
         switch self {
         case .milDot:      return "Standard mil-dot with angular measurement marks"
-        case .simpleCross: return "Clean crosshair — maximum target clarity"
+        case .bracket:     return "Bracket reticle — maximum target visibility"
         case .rangefinder: return "Duplex crosshair with ranging brackets"
         }
     }
@@ -160,12 +160,12 @@ struct ReticleConfiguration {
         color: Theme.milGreen
     )
 
-    /// Minimal crosshair — maximum target clarity
+    /// Minimal bracket — maximum target visibility, red default
     static let minimal = ReticleConfiguration(
-        style: .simpleCross,
-        color: Theme.milGreen,
-        fineLineWidth: 0.75,
+        style: .bracket,
+        color: Theme.reticleRed,
+        fineLineWidth: 1.0,
         outerLineWidth: 2.0,
-        opacity: 0.85
+        opacity: 0.92
     )
 }

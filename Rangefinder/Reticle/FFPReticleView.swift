@@ -98,11 +98,15 @@ struct FFPReticleView: View {
             }
             drawCenterDot(context: context, center: center, ppm: ppm, color: color)
 
-        case .simpleCross:
-            // Clean crosshair — duplex arms + center dot, no marks
-            drawCrosshairs(
-                context: context, center: center, ppm: ppm, size: size,
-                color: color, fineWidth: fineWidth, outerWidth: outerWidth
+        case .bracket:
+            // Bracket reticle — L-shaped corner marks + center reference ticks + center dot
+            drawBracketReticle(
+                context: context, center: center, ppm: ppm,
+                color: color, lineWidth: fineWidth
+            )
+            drawCenterReferenceTicks(
+                context: context, center: center, ppm: ppm,
+                color: color, lineWidth: fineWidth
             )
             drawCenterDot(context: context, center: center, ppm: ppm, color: color)
 
@@ -351,6 +355,93 @@ struct FFPReticleView: View {
         path.move(to: CGPoint(x: center.x + offset - armLen, y: center.y + offset))
         path.addLine(to: CGPoint(x: center.x + offset, y: center.y + offset))
         path.addLine(to: CGPoint(x: center.x + offset, y: center.y + offset - armLen))
+        context.stroke(path, with: .color(color), style: style)
+    }
+
+    /// Bracket reticle: L-shaped corner marks at 1.5 mil from center with 0.5 mil arms.
+    /// Maximizes target visibility — the center area is completely open, with only
+    /// small corner brackets framing the aiming point. Used in military optics
+    /// (PSO-1, Vectronix VECTOR) where target visibility trumps angular measurement.
+    private func drawBracketReticle(
+        context: GraphicsContext,
+        center: CGPoint,
+        ppm: CGFloat,
+        color: Color,
+        lineWidth: CGFloat
+    ) {
+        let bracketSizeMils: CGFloat = 1.5  // 1.5 mil from center to bracket corner
+        let bracketArmMils: CGFloat = 0.5   // Length of each L-arm
+        let offset = bracketSizeMils * ppm
+        let armLen = bracketArmMils * ppm
+        let style = StrokeStyle(lineWidth: lineWidth * 1.2, lineCap: .butt)
+
+        // Top-left ┌
+        var path = Path()
+        path.move(to: CGPoint(x: center.x - offset, y: center.y - offset + armLen))
+        path.addLine(to: CGPoint(x: center.x - offset, y: center.y - offset))
+        path.addLine(to: CGPoint(x: center.x - offset + armLen, y: center.y - offset))
+        context.stroke(path, with: .color(color), style: style)
+
+        // Top-right ┐
+        path = Path()
+        path.move(to: CGPoint(x: center.x + offset - armLen, y: center.y - offset))
+        path.addLine(to: CGPoint(x: center.x + offset, y: center.y - offset))
+        path.addLine(to: CGPoint(x: center.x + offset, y: center.y - offset + armLen))
+        context.stroke(path, with: .color(color), style: style)
+
+        // Bottom-left └
+        path = Path()
+        path.move(to: CGPoint(x: center.x - offset, y: center.y + offset - armLen))
+        path.addLine(to: CGPoint(x: center.x - offset, y: center.y + offset))
+        path.addLine(to: CGPoint(x: center.x - offset + armLen, y: center.y + offset))
+        context.stroke(path, with: .color(color), style: style)
+
+        // Bottom-right ┘
+        path = Path()
+        path.move(to: CGPoint(x: center.x + offset - armLen, y: center.y + offset))
+        path.addLine(to: CGPoint(x: center.x + offset, y: center.y + offset))
+        path.addLine(to: CGPoint(x: center.x + offset, y: center.y + offset - armLen))
+        context.stroke(path, with: .color(color), style: style)
+    }
+
+    /// Short reference ticks extending inward from each cardinal direction.
+    /// Provides a subtle aiming reference without obscuring the target.
+    /// Each tick is 0.3 mil long, starting 1.5 mil from center (flush with bracket corners).
+    private func drawCenterReferenceTicks(
+        context: GraphicsContext,
+        center: CGPoint,
+        ppm: CGFloat,
+        color: Color,
+        lineWidth: CGFloat
+    ) {
+        let tickStartMils: CGFloat = 1.5   // Starts at bracket corner distance
+        let tickLenMils: CGFloat = 0.3      // Short tick length
+        let startPx = tickStartMils * ppm
+        let lenPx = tickLenMils * ppm
+        let style = StrokeStyle(lineWidth: lineWidth, lineCap: .butt)
+
+        // Right tick (pointing left toward center)
+        var path = Path()
+        path.move(to: CGPoint(x: center.x + startPx, y: center.y))
+        path.addLine(to: CGPoint(x: center.x + startPx - lenPx, y: center.y))
+        context.stroke(path, with: .color(color), style: style)
+
+        // Left tick (pointing right toward center)
+        path = Path()
+        path.move(to: CGPoint(x: center.x - startPx, y: center.y))
+        path.addLine(to: CGPoint(x: center.x - startPx + lenPx, y: center.y))
+        context.stroke(path, with: .color(color), style: style)
+
+        // Bottom tick (pointing up toward center)
+        path = Path()
+        path.move(to: CGPoint(x: center.x, y: center.y + startPx))
+        path.addLine(to: CGPoint(x: center.x, y: center.y + startPx - lenPx))
+        context.stroke(path, with: .color(color), style: style)
+
+        // Top tick (pointing down toward center)
+        path = Path()
+        path.move(to: CGPoint(x: center.x, y: center.y - startPx))
+        path.addLine(to: CGPoint(x: center.x, y: center.y - startPx + lenPx))
         context.stroke(path, with: .color(color), style: style)
     }
 

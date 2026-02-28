@@ -9,13 +9,17 @@
 //  Priority order:
 //  1. Stadiametric (manual bracket overlay — user intent is explicit)
 //  2. LiDAR (< 8m, high confidence — gold standard at close range)
+//     EXCEPTION: skipped when foreground occluder detected (bimodal scene,
+//     DEM agrees with far peak, targetPriority == .far). Control falls to DEM.
 //  3. Object detection (known-size pinhole ranging at crosshair)
 //  4. DEM ray-cast (terrain target, no object detected)
-//  5. Neural depth (calibrated, < 50m hard cap)
+//  5. Neural depth (calibrated, < 150m hard cap)
 //  6. Geometric ground-plane (fallback)
 //
 //  A secondary "background" hypothesis is also emitted for the UI
 //  (e.g., if DEM is primary, background = neural/geo foreground reading).
+//  When foreground occluder is detected, LiDAR becomes the background
+//  entry (showing "BG LIDAR Xm" for foreground context).
 //
 
 import Foundation
@@ -412,14 +416,25 @@ class UnifiedDepthField: ObservableObject {
         }
 
         // 1. LiDAR (< 8m, authoritative)
+        //    EXCEPTION: skipped when scene is bimodal, DEM agrees with far peak,
+        //    and targetPriority is .far (foreground occluder detection).
         if primaryEntry == nil,
            let lidarEntry = entries.first(where: { $0.source == .lidar }),
-           lidarEntry.depth < 8.0, lidarEntry.weight > 0.3 {
+           lidarEntry.depth < 8.0, lidarEntry.weight > 0.3,
+           !isForegroundOccluder(lidarDepth: lidarEntry.depth, bimodal: bimodal) {
             decision = .lidarPrimary
             primaryEntry = lidarEntry
             // Background: DEM or neural
             backgroundEntry = entries.first(where: { $0.source == .demRaycast && $0.weight > 0.01 })
                 ?? entries.first(where: { $0.source == .neural && $0.weight > 0.01 })
+        }
+
+        // Log foreground occluder bypass when LiDAR was present but skipped
+        if primaryEntry == nil,
+           let lidarEntry = entries.first(where: { $0.source == .lidar }),
+           lidarEntry.depth < 8.0, lidarEntry.weight > 0.3,
+           frameCount % 60 == 1 {
+            Logger.depth.info("Semantic: foreground occluder detected — LiDAR \(String(format: "%.1f", lidarEntry.depth))m skipped, bimodal nearPeak=\(String(format: "%.1f", bimodal.nearPeakM))m farPeak=\(String(format: "%.1f", bimodal.farPeakM))m demAgrees=\(bimodal.demAgreesWithFar)")
         }
 
         // 2. Object detection (known-size at crosshair, authoritative)
@@ -432,27 +447,47 @@ class UnifiedDepthField: ObservableObject {
         }
 
         // 3. DEM (terrain target, far-target priority, no object)
+        //    When bimodal analysis confirms DEM agrees with the far peak,
+        //    relax the weight threshold from 0.15 → 0.01 (bimodal provides
+        //    independent corroboration, so mediocre GPS/heading is acceptable).
+        let demThreshold: Float = bimodal.demAgreesWithFar ? 0.01 : 0.15
+        if bimodal.demAgreesWithFar, demThreshold < 0.15, frameCount % 60 == 1 {
+            Logger.depth.info("Semantic: DEM threshold relaxed 0.15→0.01 (bimodal demAgreesWithFar, farPeak=\(String(format: "%.0f", bimodal.farPeakM))m)")
+        }
         if primaryEntry == nil,
            let demEntry = entries.first(where: { $0.source == .demRaycast }),
-           demEntry.weight > 0.15,
+           demEntry.weight > demThreshold,
            !hasObjectAtCrosshair,
            targetPriority == .far {
             decision = .demPrimary
             primaryEntry = demEntry
-            // Background: neural or geometric (foreground context)
-            backgroundEntry = entries.first(where: { $0.source == .neural && $0.weight > 0.01 })
-                ?? entries.first(where: { $0.source == .geometric && $0.weight > 0.01 })
+            // Background: prefer LiDAR when foreground occluder was detected
+            // (shows "BG LIDAR 3m" giving the user foreground context),
+            // otherwise fall back to neural or geometric.
+            if let lidarEntry = entries.first(where: { $0.source == .lidar && $0.weight > 0.01 }),
+               isForegroundOccluder(lidarDepth: lidarEntry.depth, bimodal: bimodal) {
+                backgroundEntry = lidarEntry
+            } else {
+                backgroundEntry = entries.first(where: { $0.source == .neural && $0.weight > 0.01 })
+                    ?? entries.first(where: { $0.source == .geometric && $0.weight > 0.01 })
+            }
         }
 
         // 3b. DEM even in near mode if no object and DEM is available
         if primaryEntry == nil,
            let demEntry = entries.first(where: { $0.source == .demRaycast }),
-           demEntry.weight > 0.15,
+           demEntry.weight > demThreshold,
            !hasObjectAtCrosshair {
             decision = .demPrimary
             primaryEntry = demEntry
-            backgroundEntry = entries.first(where: { $0.source == .neural && $0.weight > 0.01 })
-                ?? entries.first(where: { $0.source == .geometric && $0.weight > 0.01 })
+            // Background: prefer LiDAR when foreground occluder detected
+            if let lidarEntry = entries.first(where: { $0.source == .lidar && $0.weight > 0.01 }),
+               isForegroundOccluder(lidarDepth: lidarEntry.depth, bimodal: bimodal) {
+                backgroundEntry = lidarEntry
+            } else {
+                backgroundEntry = entries.first(where: { $0.source == .neural && $0.weight > 0.01 })
+                    ?? entries.first(where: { $0.source == .geometric && $0.weight > 0.01 })
+            }
         }
 
         // 4. Neural (< 50m, calibrated, mid-range)
@@ -520,6 +555,50 @@ class UnifiedDepthField: ObservableObject {
         }
 
         return (primaryEstimate, bgEstimate)
+    }
+
+    // MARK: - Foreground Occluder Detection
+
+    /// Detect whether LiDAR is reading a foreground occluder that should be skipped.
+    ///
+    /// When the user aims OVER nearby objects (rocks, fences) at distant terrain,
+    /// LiDAR reads the close foreground and wins the priority chain. The bimodal
+    /// analysis detects both depth populations, and DEM corroborates the far peak.
+    /// This method wires those existing signals into a single predicate.
+    ///
+    /// All four conditions must be true:
+    /// 1. `targetPriority == .far` — user wants the distant target
+    /// 2. `bimodal.isBimodal` — scene has two distinct depth populations
+    /// 3. `bimodal.demAgreesWithFar` — DEM confirms the far peak (within 30%)
+    /// 4. LiDAR depth is in the near cluster (nearPeakM < 12m or lidarDepth ≤ nearPeakM)
+    ///
+    /// Returns `false` if ANY condition fails → LiDAR retains normal priority.
+    func isForegroundOccluder(
+        lidarDepth: Float,
+        bimodal: BimodalAnalysis
+    ) -> Bool {
+        // 1. User must be in far-target mode
+        guard targetPriority == .far else { return false }
+
+        // 2. Scene must be bimodal (two distinct depth populations detected)
+        guard bimodal.isBimodal else { return false }
+
+        // 3. DEM must corroborate the far peak
+        guard bimodal.demAgreesWithFar else { return false }
+
+        // 4. LiDAR must be reading the near (foreground) cluster.
+        //    When the near peak is within LiDAR's range (< 12m), the LiDAR
+        //    reading at < 8m is inherently in the near cluster.
+        //    When the near peak is beyond LiDAR range (e.g., 40m), LiDAR at 3m
+        //    is reading something even closer — still a foreground occluder.
+        let nearPeak = bimodal.nearPeakM
+        if nearPeak < 12.0 {
+            return true
+        }
+        if lidarDepth <= nearPeak {
+            return true
+        }
+        return false
     }
 
     // MARK: - Semantic Confidence

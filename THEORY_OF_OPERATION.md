@@ -235,11 +235,11 @@ The `semanticSelect()` method evaluates sources in strict priority order. Each l
 
 1. **Stadiametric** — If `stadiametricInput` is set with valid pixel size, return directly. This is user-explicit and overrides all sensor sources.
 
-2. **LiDAR** — If LiDAR depth is valid, < 12m, and confidence is high. Authoritative for close range. Background: DEM estimate if available.
+2. **LiDAR** — If LiDAR depth is valid, < 8m, and confidence > 0.3. Authoritative for close range. Background: DEM estimate if available. **Exception:** skipped when the foreground occluder detector fires (see §3.5.1). Control falls through to DEM.
 
 3. **Object Detection** — If a known-size object is detected at the crosshair with adequate confidence. Background: DEM estimate.
 
-4. **DEM Ray-Cast** — If DEM estimate is available and no object is detected. The primary source for terrain targets (mountains, ridgelines). Background: neural or geometric estimate.
+4. **DEM Ray-Cast** — If DEM estimate is available, weight > 0.15, and no object is detected. The primary source for terrain targets (mountains, ridgelines). **Threshold relaxation:** when bimodal analysis confirms `demAgreesWithFar`, the weight threshold drops from 0.15 → 0.01 (bimodal provides independent corroboration, so mediocre GPS/heading is acceptable). Background: neural or geometric estimate. When foreground occluder was detected, LiDAR becomes the background entry (showing "BG LIDAR Xm" for foreground context).
 
 5. **Neural Depth** — If calibrated neural estimate is valid and < 150m (`AppConfiguration.neuralHardCapMeters`). The hard cap prevents unreliable extrapolation at extreme range. Background: geometric estimate.
 
@@ -251,7 +251,7 @@ After selecting the primary source, `semanticSelect()` returns a secondary estim
 
 - **Primary: LiDAR** → Background: DEM (foreground object vs. terrain behind)
 - **Primary: Object** → Background: DEM
-- **Primary: DEM** → Background: neural or geometric (terrain vs. foreground)
+- **Primary: DEM** → Background: neural or geometric (terrain vs. foreground); **LiDAR when foreground occluder detected** (shows "BG LIDAR 3m" for foreground context)
 - **Primary: Neural** → Background: geometric
 
 The background estimate is published via `@Published var backgroundDepth` and tracked by an independent Kalman filter in `RangingEngine`.
@@ -274,6 +274,17 @@ A log-scale histogram analyzer detects bimodal depth distributions (near foregro
 - Peaks separated ≥2× in distance, each >10% of ROI pixels
 - Valley between peaks < 60% of smaller peak height
 - When bimodal, `isBimodal` flag enables relaxed outlier thresholds in far-target mode
+
+#### 3.5.1 Foreground Occluder Detection
+
+When the user aims OVER nearby objects (rocks at 3m) at distant terrain (~1600m), LiDAR reads the close foreground and would normally win the priority chain unconditionally. The `isForegroundOccluder()` predicate wires existing bimodal analysis + DEM agreement signals to detect this scenario. All four conditions must be true:
+
+1. `targetPriority == .far` — user wants the distant target
+2. `bimodal.isBimodal` — scene has two distinct depth populations
+3. `bimodal.demAgreesWithFar` — DEM corroborates the far peak (within 30%)
+4. LiDAR depth is in the near cluster (nearPeak < 12m, or lidarDepth ≤ nearPeak)
+
+When all conditions are met, LiDAR is skipped and control falls through to DEM (step 4 in §3.2). LiDAR becomes the background entry so the user sees "BG LIDAR 3m" for foreground context. If ANY condition fails, LiDAR retains normal priority — ensuring safe behavior for single-object scenes, indoor environments, and near-mode operation.
 
 ### 3.6 Scene Classification (Retained)
 
@@ -491,10 +502,11 @@ Three configurable reticle styles rendered in First Focal Plane (FFP):
 - Optional mil number labels
 - Center dot
 
-**CROSSHAIR (maximum clarity):**
-- Duplex crosshair arms only
+**BRACKET (maximum visibility):**
+- L-shaped corner brackets at 1.5 mil from center, 0.5 mil arm length
+- Cardinal reference ticks (0.3 mil, flush with bracket corners)
 - Center dot
-- No dots, hashes, or labels — designed for digital-only ranging
+- Red default color — designed for maximum target visibility with unobstructed center
 
 **RANGEFINDER (Vectronix VECTOR style):**
 - Duplex crosshair arms
@@ -683,7 +695,7 @@ The semantic selection algorithm is validated by a deterministic Monte Carlo sim
 
 **Fusion Simulator:** Mirrors production `UnifiedDepthField` semantic selection logic including:
 - **Semantic source selection priority chain** (Stadia > LiDAR > Object > DEM > Neural > Geometric)
-- **Neural hard cap at 50m** (confidence = 0.0 beyond `neuralHardCapMeters`)
+- **Neural hard cap at 150m** (confidence = 0.0 beyond `neuralHardCapMeters`)
 - Distance-dependent confidence curves from `DepthSourceConfidence`
 - DEM-dominance rule (ratio > 1.5×, DEM > 40m → suppress neural)
 - Neural extrapolation penalty (beyond 15m calibration range)
@@ -741,24 +753,95 @@ With terrain routing active, the fusion simulator now short-circuits to DEM for 
 
 ---
 
-## 17. Future Work
+## 17. Ground Truth Dataset Validation
 
-### 15.1 Near-Term Refinements
+The fusion pipeline is validated against a 10,000-sample ground truth dataset derived from publicly available iPhone/LiDAR depth datasets with laser-scanner reference measurements.
+
+### 17.1 Dataset Sources
+
+**ARKitScenes (Apple):** iPad Pro LiDAR captures with Faro Focus S70 laser scanner ground truth (±1mm accuracy). 365K+ frames across 1,661 scenes. Provides indoor depth maps with high-precision reference.
+
+**DIODE (MIT-licensed):** Indoor and outdoor scenes captured with laser scanner ground truth. 25K+ samples spanning 0.5–350m distance range. Provides broad distance coverage including outdoor long-range scenarios.
+
+### 17.2 Dataset Structure
+
+The ground truth manifest (`RangefinderTests/GroundTruthData/manifest.json`, 3.5MB) contains 10,000 samples stratified across 6 distance bands:
+
+| Band | Range | Samples | Primary Testing Focus |
+|---|---|---|---|
+| close | 0.5–3m | 2,000 | LiDAR accuracy, near-field fusion |
+| near_mid | 3–8m | 2,000 | LiDAR-neural overlap zone, calibration |
+| mid | 8–15m | 1,500 | Neural sweet spot, geometric onset |
+| far_mid | 15–50m | 1,500 | Neural extrapolation, DEM onset |
+| far | 50–150m | 1,500 | Neural hard cap boundary, DEM primary |
+| long | 150–350m | 1,500 | DEM-only, object detection, neural excluded |
+
+Each sample includes: frame ID, dataset source, scene type (indoor/outdoor), ground truth center distance (laser scanner), optional LiDAR reading, optional depth percentiles (P25/P75), distance band, camera intrinsics, and optional depth map file path.
+
+### 17.3 Three-Tier Test Architecture
+
+**Tier 1 — Manifest-based (always runs in CI, ~0.5s):**
+- Manifest integrity validation (5K+ samples, valid ground truth ranges)
+- Distance band distribution coverage (≥500 samples per band, no large gaps)
+- Confidence curve dead zone detection (<1% of samples with zero coverage)
+- Source selection distribution validation (LiDAR dominant at close range, DEM at long range)
+- Fusion accuracy per band: AbsRel, P50, P90, catastrophic rate, confident-and-bad rate
+- 50K Monte Carlo statistical accuracy (5 MC samples × 10K entries with varied conditions)
+- LiDAR vs laser-scanner ground truth comparison
+
+**Tier 2 — Real depth maps (optional, requires `RANGEFINDER_DATASET_PATH`):**
+- LiDAR sampling accuracy on real 128×128 depth maps (center 5×5 patch median)
+- Bimodal detection on scenes with large P25-P75 spread (foreground occluders)
+- Depth map noise characterization (coefficient of variation analysis)
+
+**Tier 3 — Full images (optional, requires dataset + on-device execution):**
+- Neural model inference on real camera images
+- Full pipeline end-to-end with ARKit
+
+### 17.4 Dataset Preparation
+
+The `Scripts/prepare_ground_truth_dataset.py` Python script handles:
+1. Downloading and preprocessing ARKitScenes and DIODE datasets
+2. Stratified sampling across distance bands with configurable targets
+3. Generating the manifest.json with per-sample metadata
+4. Synthetic manifest generation (`--synthetic` mode) for CI without network access
+
+### 17.5 Key Metrics
+
+Per-band accuracy thresholds validated against ground truth:
+
+| Band | Max AbsRel | Max P90 | Max Catastrophic Rate |
+|---|---|---|---|
+| close | 5% | 8% | 0% |
+| near_mid | 8% | 12% | 0% |
+| mid | 12% | 20% | 0% |
+| far_mid | 15% | 25% | 1% |
+| far | 20% | 30% | 2% |
+| long | 25% | 40% | 5% |
+
+Global target: catastrophic rate (>100% error) < 1%, confident-and-bad rate (>50% error with >0.3 confidence) < 10%.
+
+---
+
+## 18. Future Work
+
+### 18.1 Near-Term Refinements
 
 - **Geometric confidence at gentle slopes:** Add steeper pitch-based penalty for 2–5° angles at 15–30m range (currently the weakest band at 6.2% mean error)
 - **GPS-aware displayed confidence:** Post-fusion confidence modifier that further reduces displayed confidence when GPS accuracy >10m, separate from the fusion weight factor
 - **Dynamic BDC marks:** Scale mil-dot subtension markers on the reticle to match the ballistic drop curve for the selected cartridge
 
-### 15.2 Medium-Term Features
+### 18.2 Medium-Term Features
 
 - **LASE button:** Tap-to-lock that freezes the current range reading for 5 seconds, useful for unstable hold positions
 - **Guidance engine unit tests:** Formal test coverage for `OperatorGuidanceEngine` stability analysis, respiratory pause detection, and reading lock logic
 - **Multi-target tracking:** Maintain range estimates for multiple crosshair positions simultaneously
 - **Wind estimation integration:** Incorporate wind speed/direction for ballistic solver lateral drift
+- **Tier 2/3 ground truth testing:** Download real ARKitScenes/DIODE depth maps and images for on-device pipeline validation against laser-scanner ground truth
 
-### 15.3 Long-Term Research
+### 18.3 Long-Term Research
 
-- **Field validation dataset:** Collect ground-truth range measurements at known distances (laser rangefinder reference) across varied terrain to validate Monte Carlo predictions against real-world performance
-- **Adaptive confidence curves:** Use field data to auto-tune confidence curve parameters per-device and per-environment
+- **Field validation dataset expansion:** Extend ground truth dataset with on-device captures at known distances (laser rangefinder reference) across varied terrain. The existing 10K-sample manifest provides synthetic/offline validation; field captures would validate real ARKit + CoreML inference accuracy.
+- **Adaptive confidence curves:** Use field data and ground truth dataset results to auto-tune confidence curve parameters per-device and per-environment
 - **Collaborative elevation data:** Crowdsource high-resolution elevation corrections to improve DEM accuracy beyond SRTM 30m resolution
 - **Thermal/IR sensor fusion:** Extend depth source framework to support thermal imaging for low-visibility conditions

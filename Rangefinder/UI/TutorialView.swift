@@ -101,7 +101,7 @@ extension TutorialPage {
             subtitle: "CONFIGURABLE STYLES",
             features: [
                 TutorialFeature(icon: "circle.grid.cross", text: "MIL-DOT: NATO STANDARD, FFP SCALED", color: Theme.milGreen),
-                TutorialFeature(icon: "plus", text: "CROSSHAIR: CLEAN — MAXIMUM TARGET CLARITY", color: Theme.milAmber),
+                TutorialFeature(icon: "viewfinder.rectangular", text: "BRACKET: CORNER MARKS — MAXIMUM VISIBILITY", color: Theme.milAmber),
                 TutorialFeature(icon: "viewfinder", text: "RANGEFINDER: DUPLEX + BRACKET MARKS", color: Theme.milGreen),
             ]
         ),
@@ -176,7 +176,7 @@ extension TutorialPage {
             features: [
                 TutorialFeature(icon: "gearshape", text: "OPEN SETTINGS — STADIAMETRIC RANGING SECTION", color: Theme.milGreen),
                 TutorialFeature(icon: "flag.fill", text: "TAP GOLF PIN PRESET — SETS HEIGHT TO 2.13M", color: Theme.milAmber),
-                TutorialFeature(icon: "scope", text: "SELECT RANGEFINDER OR CROSSHAIR RETICLE", color: Theme.milGreen),
+                TutorialFeature(icon: "scope", text: "SELECT RANGEFINDER OR BRACKET RETICLE", color: Theme.milGreen),
             ]
         ),
         TutorialPage(
@@ -186,7 +186,7 @@ extension TutorialPage {
             subtitle: "ZOOM + AIM AT FLAGSTICK",
             features: [
                 TutorialFeature(icon: "hand.pinch", text: "PINCH ZOOM 5-8X — PIN MUST BE VISIBLE", color: Theme.milGreen),
-                TutorialFeature(icon: "arrow.up.and.down", text: "CENTER CROSSHAIR ON PIN — BASE TO TOP", color: Theme.milAmber),
+                TutorialFeature(icon: "arrow.up.and.down", text: "CENTER RETICLE ON PIN — BASE TO TOP", color: Theme.milAmber),
                 TutorialFeature(icon: "lock.fill", text: "HOLD STEADY — WAIT FOR STABILITY INDICATOR", color: Theme.milGreen),
             ]
         ),

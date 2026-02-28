@@ -7,6 +7,13 @@
 //  Uses ARWorldTrackingConfiguration with sceneDepth for unified
 //  camera + LiDAR pipeline. Publishes frame data via Combine.
 //
+//  Zoom: Uses ARWorldTrackingConfiguration.configurableCaptureDeviceForPrimaryCamera
+//  to get the actual AVCaptureDevice ARKit uses internally. Setting videoZoomFactor
+//  on this device triggers real hardware lens switching (0.5x ultrawide → 1x main →
+//  5x telephoto) and ISP-accelerated digital zoom. The ARSCNView renders the
+//  hardware-zoomed camera feed at native quality — no pixelating view transforms.
+//  LiDAR depth maps always cover the full wide-angle FOV regardless of zoom.
+//
 
 import ARKit
 import AVFoundation
@@ -47,16 +54,16 @@ class CameraManager: NSObject, ObservableObject {
 
     // MARK: - Zoom
 
-    /// The capture device for zoom control. Marked nonisolated(unsafe) because
-    /// we read videoZoomFactor from the nonisolated ARSessionDelegate callback.
-    /// AVCaptureDevice properties are thread-safe for reading.
+    /// ARKit's configurable capture device — the ACTUAL device ARKit uses.
+    /// Obtained via ARWorldTrackingConfiguration.configurableCaptureDeviceForPrimaryCamera.
+    /// Setting videoZoomFactor on this device controls hardware lens switching
+    /// and the ISP's ML-enhanced digital zoom. Marked nonisolated(unsafe) because
+    /// we read from the nonisolated ARSessionDelegate callback.
     nonisolated(unsafe) private var captureDevice: AVCaptureDevice?
 
     /// Current logical zoom factor set by ZoomController.
-    /// ARKit ignores AVCaptureDevice.videoZoomFactor for its camera feed and
-    /// depth maps — visual zoom is implemented via view scaling instead.
-    /// This property tracks the user's intended zoom so the ranging pipeline
-    /// can apply appropriate confidence adjustments at high zoom.
+    /// Tracks the user's intended zoom for the ranging pipeline (depth map
+    /// coordinate mapping, confidence adjustments at extreme zoom).
     nonisolated(unsafe) var currentZoomFactor: CGFloat = 1.0
 
     // MARK: - Setup
@@ -89,12 +96,21 @@ class CameraManager: NSObject, ObservableObject {
         arSession.run(config, options: [.resetTracking, .removeExistingAnchors])
         isSessionRunning = true
 
-        // Get the capture device for zoom control
-        if let device = AVCaptureDevice.default(.builtInTripleCamera, for: .video, position: .back)
-            ?? AVCaptureDevice.default(.builtInDualWideCamera, for: .video, position: .back)
-            ?? AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) {
+        // Get ARKit's actual configurable capture device for hardware zoom.
+        // This is the REAL device ARKit uses — setting videoZoomFactor on it
+        // controls lens switching (0.5x/1x/5x) and ISP digital zoom.
+        // The ARSCNView renders the zoomed feed at native quality.
+        if let device = ARWorldTrackingConfiguration.configurableCaptureDeviceForPrimaryCamera {
             captureDevice = device
-            Logger.camera.info("Capture device: \(device.localizedName)")
+            Logger.camera.info("ARKit capture device: \(device.localizedName), zoom \(device.minAvailableVideoZoomFactor)–\(device.maxAvailableVideoZoomFactor)")
+        } else {
+            // Fallback for non-configurable devices
+            if let device = AVCaptureDevice.default(.builtInTripleCamera, for: .video, position: .back)
+                ?? AVCaptureDevice.default(.builtInDualWideCamera, for: .video, position: .back)
+                ?? AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) {
+                captureDevice = device
+                Logger.camera.warning("Using fallback capture device: \(device.localizedName)")
+            }
         }
     }
 
@@ -112,13 +128,14 @@ class CameraManager: NSObject, ObservableObject {
     // MARK: - Zoom Control
 
     func setZoomFactor(_ factor: CGFloat) {
-        // Store the logical zoom factor for the ranging pipeline.
-        // Visual zoom is handled by CameraPreviewView's CGAffineTransform.
+        // Store the logical zoom factor for the ranging pipeline
+        // (depth map coordinate mapping, confidence adjustments).
         currentZoomFactor = factor
 
-        // Also attempt to set device zoom — ARKit currently ignores this for
-        // its camera feed and depth maps, but setting it keeps AVCaptureDevice
-        // state consistent and may be used by future ARKit versions.
+        // Set hardware zoom on ARKit's configurable capture device.
+        // This triggers real lens switching (0.5x ultrawide → 1x main → 5x telephoto)
+        // and ISP-accelerated digital zoom. The ARSCNView renders the zoomed feed
+        // at native quality — no pixelating view transforms needed.
         guard let device = captureDevice else { return }
         do {
             try device.lockForConfiguration()

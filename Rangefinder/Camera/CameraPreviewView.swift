@@ -4,16 +4,13 @@
 //
 //  UIViewRepresentable wrapper for ARSCNView camera preview.
 //
-//  Visual zoom is implemented via CGAffineTransform scaling on the view itself.
-//  ARKit ignores AVCaptureDevice.videoZoomFactor — its camera feed and depth
-//  maps always cover the full wide-angle FOV. This is actually desirable:
-//  the ranging engine operates on unzoomed data (where LiDAR calibration is
-//  valid), while the user sees a zoomed preview that matches the reticle.
+//  Zoom is handled entirely by hardware — CameraManager sets videoZoomFactor
+//  on ARKit's configurableCaptureDeviceForPrimaryCamera, which triggers real
+//  lens switching (0.5x ultrawide → 1x main → 5x telephoto) and ISP-accelerated
+//  digital zoom. The ARSCNView renders the hardware-zoomed feed at native quality.
 //
-//  At 1x zoom the view is unscaled. At 5x the center 20% is magnified to
-//  fill the screen. The reticle (FFPReticleView) independently scales its
-//  mil-space geometry with the same zoom factor, keeping crosshair and
-//  camera image aligned.
+//  LiDAR depth maps always cover the full wide-angle FOV regardless of zoom.
+//  The ranging engine uses FrameData.zoomFactor for coordinate mapping.
 //
 
 import SwiftUI
@@ -21,8 +18,6 @@ import ARKit
 
 struct CameraPreviewView: UIViewRepresentable {
     let cameraManager: CameraManager
-    /// Current zoom factor — drives the visual scale transform.
-    var zoomFactor: CGFloat
 
     func makeUIView(context: Context) -> ARSCNView {
         let view = cameraManager.makeARView()
@@ -32,19 +27,7 @@ struct CameraPreviewView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: ARSCNView, context: Context) {
-        // Apply visual zoom as a scale transform on the camera preview.
-        // This crops into the center of the wide-angle feed, giving the
-        // user a true zoomed view without affecting the underlying ARKit
-        // pipeline (depth maps, intrinsics, neural model input all stay
-        // at full wide-angle FOV).
-        let clampedZoom = max(1.0, zoomFactor)
-        let newTransform = CGAffineTransform(scaleX: clampedZoom, y: clampedZoom)
-
-        // Only animate if the change is significant (avoids micro-jitter)
-        if abs(uiView.transform.a - clampedZoom) > 0.01 {
-            UIView.animate(withDuration: 0.08, delay: 0, options: [.curveEaseOut, .beginFromCurrentState]) {
-                uiView.transform = newTransform
-            }
-        }
+        // Hardware zoom is applied directly to the capture device by CameraManager.
+        // No view transforms needed — ARSCNView renders the zoomed feed natively.
     }
 }

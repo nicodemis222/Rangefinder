@@ -6,7 +6,7 @@
 
 ## Abstract
 
-We present a real-time depth estimation system for iOS that selects among six heterogeneous depth sources — LiDAR time-of-flight, neural monocular depth estimation, geometric ground-plane trigonometry, digital elevation model (DEM) ray-casting, object-size pinhole ranging, and user-directed stadiametric bracket ranging — using a priority-based semantic source selection state machine with multi-hypothesis tracking from 0.3 to 2000 meters. The system addresses the fundamental challenge that no single depth source covers the full operational range with adequate accuracy, and that averaging sources measuring fundamentally different things (foreground rock wall vs. background mountain) produces catastrophically wrong results. Our approach replaces weighted-average fusion with a deterministic priority chain: Stadiametric > LiDAR (< 12m) > Object Detection > DEM > Neural (< 150m hard cap) > Geometric. Dual Kalman filters independently track foreground and background depth hypotheses, with automatic filter reset on semantic source switches. A neural depth hard cap at 150m prevents unreliable inverse-depth extrapolation while allowing neural to contribute at medium ranges. Comprehensive testing — Monte Carlo simulation across 10 distance bands (0.3–2000m) plus distance sweep validation (100–1500 yards) with multi-operator repeatability and environmental condition matrices — demonstrates mean error below 10% at all distances with 289 unit tests across 21 test files. Golf-specific stadiametric ranging with a USGA regulation flagstick preset (2.13m) enables club-selection grade accuracy (±2 yards at 150) at 5–8× zoom. An IMU-based operator guidance engine provides real-time coaching (stability detection, respiratory pause capture windows, reading lock confirmation) modeled on military marksmanship doctrine (FM 23-10).
+We present a real-time depth estimation system for iOS that selects among six heterogeneous depth sources — LiDAR time-of-flight, neural monocular depth estimation, geometric ground-plane trigonometry, digital elevation model (DEM) ray-casting, object-size pinhole ranging, and user-directed stadiametric bracket ranging — using a priority-based semantic source selection state machine with multi-hypothesis tracking from 0.3 to 2000 meters. The system addresses the fundamental challenge that no single depth source covers the full operational range with adequate accuracy, and that averaging sources measuring fundamentally different things (foreground rock wall vs. background mountain) produces catastrophically wrong results. Our approach replaces weighted-average fusion with a deterministic priority chain: Stadiametric > LiDAR (< 8m, with foreground occluder exception) > Object Detection > DEM > Neural (< 150m hard cap) > Geometric. Dual Kalman filters independently track foreground and background depth hypotheses, with automatic filter reset on semantic source switches. A neural depth hard cap at 150m prevents unreliable inverse-depth extrapolation while allowing neural to contribute at medium ranges. Comprehensive testing — Monte Carlo simulation across 10 distance bands (0.3–2000m), distance sweep validation (100–1500 yards) with multi-operator repeatability and environmental condition matrices, and a 10,000-sample ground truth dataset from ARKitScenes and DIODE with laser-scanner reference measurements — demonstrates mean error below 10% at all distances with 312 unit tests across 24 test files. Golf-specific stadiametric ranging with a USGA regulation flagstick preset (2.13m) enables club-selection grade accuracy (±2 yards at 150) at 5–8× zoom. An IMU-based operator guidance engine provides real-time coaching (stability detection, respiratory pause capture windows, reading lock confirmation) modeled on military marksmanship doctrine (FM 23-10).
 
 ---
 
@@ -256,7 +256,8 @@ The `semanticSelect()` method in `UnifiedDepthField` evaluates sources in strict
 
 ```
 1. STADIAMETRIC  — User-explicit manual bracket (highest priority)
-2. LIDAR_PRIMARY — Close range <12m, high confidence
+2. LIDAR_PRIMARY — Close range <8m, high confidence
+   EXCEPTION: skipped when foreground occluder detected (§3.8.1)
 3. OBJECT_PRIMARY — Known-size pinhole ranging at crosshair
 4. DEM_PRIMARY   — Terrain target (no object detected)
 5. NEURAL_PRIMARY — Calibrated depth, <150m hard cap
@@ -272,7 +273,7 @@ After selecting the primary source, `semanticSelect()` returns a secondary "back
 
 - **LiDAR primary** → DEM as background (foreground object vs. terrain behind)
 - **Object primary** → DEM as background
-- **DEM primary** → Neural or geometric as background (terrain vs. foreground)
+- **DEM primary** → Neural or geometric as background (terrain vs. foreground); **LiDAR when foreground occluder detected** (shows "BG LIDAR Xm" for foreground context)
 - **Neural primary** → Geometric as background
 
 The background estimate is tracked by an independent Kalman filter (`bgKalmanFilter`) and displayed as a "BG" chip below the primary range readout.
@@ -312,6 +313,25 @@ The depth-map scene classifier still operates at zero additional compute cost, a
 ### 3.8 Bimodal Detection
 
 The system detects bimodal depth distributions (near foreground + far terrain) using log-scale histogram analysis. When bimodal conditions are detected (peaks separated ≥2× in distance, each covering >10% of ROI pixels), the `isBimodal` flag is published and the target priority chip shows an amber indicator. In far-target mode with bimodal detection, outlier rejection thresholds are relaxed to allow legitimate depth jumps.
+
+#### 3.8.1 Foreground Occluder Detection
+
+When aiming OVER nearby objects (rocks at 3m) at distant terrain (~1600m), LiDAR reads the close foreground and would normally win the priority chain unconditionally. The `isForegroundOccluder()` predicate detects this by checking four conditions (ALL required):
+
+1. `targetPriority == .far` — user wants the distant target
+2. `bimodal.isBimodal` — scene has two distinct depth populations
+3. `bimodal.demAgreesWithFar` — DEM corroborates the far peak (within 30%)
+4. LiDAR depth is in the near cluster (nearPeak < 12m, or lidarDepth ≤ nearPeak)
+
+When triggered, LiDAR is skipped and DEM becomes primary. LiDAR is demoted to the background entry ("BG LIDAR 3m"), giving the user foreground context. This is a wiring fix — no new algorithm; the bimodal analysis and DEM agreement signals were already computed but not consulted in the LiDAR selection block.
+
+| Scenario | Bimodal? | DEM Agrees? | Priority | Result |
+|---|---|---|---|---|
+| Rocks 3m + mountains 1600m | Yes | Yes | .far | DEM primary (fix) |
+| Same scene | Yes | Yes | .near | LiDAR primary (user wants near) |
+| Indoor room, no DEM | No | N/A | .far | LiDAR primary (safe) |
+| Single object at 5m | No | N/A | .far | LiDAR primary (safe) |
+| Bimodal, DEM disagrees | Yes | No | .far | LiDAR primary (safe) |
 
 ---
 
@@ -515,7 +535,7 @@ Total pipeline latency: 25–50ms (neural inference dominates). The system maint
 
 ### 8.1 Unit Test Coverage
 
-289 tests across 21 test files verify:
+312 tests across 24 test files (5 Tier 2/3 skipped without dataset) verify:
 
 - **Confidence curves:** Each source curve tested at multiple distance points for expected shape, boundary conditions, and decay rates
 - **Calibration:** Inverse and metric model detection, weighted least-squares fit accuracy, confidence computation, edge cases (single sample, zero neural depth)
@@ -611,6 +631,41 @@ Test patterns:
 - **Structure:** left half 10m, right half 80m (sharp discontinuity)
 - **Mixed:** pseudo-random pattern `(x*7 + y*13) % 17`
 
+### 8.5 Ground Truth Dataset Validation
+
+A 10,000-sample ground truth dataset validates the fusion pipeline against real-world depth measurements with laser-scanner reference data. This extends Monte Carlo validation (synthetic noise models) with empirically measured depth distributions.
+
+**Dataset composition:**
+- **ARKitScenes (Apple):** iPad Pro LiDAR + Faro Focus S70 laser scanner ground truth (±1mm). 365K+ frames across 1,661 scenes.
+- **DIODE (MIT-licensed):** Indoor/outdoor scenes with laser scanner ground truth. 25K+ samples spanning 0.5–350m.
+
+**Manifest structure:** 10,000 samples stratified across 6 distance bands (close 0.5–3m, near_mid 3–8m, mid 8–15m, far_mid 15–50m, far 50–150m, long 150–350m) with per-sample ground truth center distance, optional LiDAR readings, depth percentiles (P25/P75), scene type, camera intrinsics, and dataset provenance.
+
+**Three-tier test architecture:**
+
+| Tier | Data Required | Tests | Runtime |
+|---|---|---|---|
+| Tier 1 | Manifest only (3.5MB, bundled) | 7 tests: integrity, distribution, confidence, source selection, fusion accuracy, statistical accuracy (50K evaluations), LiDAR accuracy | ~0.5s (CI) |
+| Tier 2 | Real depth maps (~500MB) | 3 tests: depth map sampling, bimodal detection, noise characterization | ~30s |
+| Tier 3 | Full images (~5GB) + device | 2 tests: neural inference, full pipeline E2E | On-device only |
+
+Tier 2/3 tests use `XCTSkip` when `RANGEFINDER_DATASET_PATH` is not set, ensuring CI runs complete without large dataset dependencies.
+
+**Per-band accuracy thresholds:**
+
+| Band | Range | Max AbsRel | Max P90 | Max Catastrophic |
+|---|---|---|---|---|
+| close | 0.5–3m | 5% | 8% | 0% |
+| near_mid | 3–8m | 8% | 12% | 0% |
+| mid | 8–15m | 12% | 20% | 0% |
+| far_mid | 15–50m | 15% | 25% | 1% |
+| far | 50–150m | 20% | 30% | 2% |
+| long | 150–350m | 25% | 40% | 5% |
+
+**Statistical validation:** The `testPerBandStatisticalAccuracy` test runs 5 Monte Carlo samples per ground truth entry (50,000 total evaluations) with randomly varied GPS accuracy, heading accuracy, and terrain slope, validating that the fusion pipeline produces stable results across condition variations.
+
+**Relationship to Monte Carlo tests:** Monte Carlo tests (Section 8.2) validate the fusion algorithm with synthetic noise models across 0.3–2000m. Ground truth tests validate the same algorithm against empirically measured depth distributions from real sensors, providing complementary coverage. Monte Carlo covers extreme ranges (>350m) that no public depth dataset reaches; ground truth covers the realistic noise characteristics that synthetic models approximate.
+
 ---
 
 ## 9. Known Limitations
@@ -639,7 +694,7 @@ Test patterns:
 
 2. **GPS-aware displayed confidence:** A separate post-fusion confidence modifier that further reduces displayed confidence when GPS accuracy > 10m. The current fusion weight penalty (0.65/0.35) is intentionally moderate to avoid starving DEM of weight; a display-only penalty can be more aggressive.
 
-3. **Field validation dataset:** Collect ground-truth range measurements at known distances using a reference laser rangefinder across varied terrain. Compare against Monte Carlo predictions to validate the noise model and confidence calibration in the real world.
+3. **Field validation dataset expansion:** The 10K-sample ground truth manifest (Section 8.5) provides offline validation against laser-scanner reference measurements from ARKitScenes and DIODE. The next step is on-device captures at known distances using a reference laser rangefinder across varied terrain, validating real ARKit + CoreML inference accuracy against the Monte Carlo noise model predictions.
 
 ### 10.2 Feature Development
 
@@ -675,10 +730,11 @@ Test patterns:
 |---|---|
 | Source files | 52 Swift files |
 | Source lines | ~11,700 |
-| Test files | 21 Swift files |
-| Test lines | ~7,000 |
-| Total lines | ~18,700 |
-| Unit tests | 289 |
+| Test files | 24 Swift files |
+| Test lines | ~8,000 |
+| Total lines | ~19,700 |
+| Unit tests | 312 (5 Tier 2/3 skipped without dataset) |
+| Ground truth samples | 10,000 (ARKitScenes + DIODE, laser-scanner reference) |
 | Depth sources | 6 (LiDAR, neural, geometric, DEM, object, stadiametric) |
 | ML models | 3 (depth, depth secondary, object detection) |
 | Frameworks | 14 Apple frameworks + MapKit |
@@ -686,7 +742,7 @@ Test patterns:
 | Swift version | 6.0 (strict concurrency) |
 | Build system | XcodeGen (project.yml) |
 | Target devices | iPhone with LiDAR (12 Pro+) |
-| Reticle styles | 3 (mil-dot, crosshair, rangefinder) |
+| Reticle styles | 3 (mil-dot, bracket, rangefinder) |
 | Guidance hints | 14 types across 3 severity levels |
 | Selection architecture | Semantic source selection (priority state machine) |
 | Kalman filters | 2 (foreground + background hypothesis) |

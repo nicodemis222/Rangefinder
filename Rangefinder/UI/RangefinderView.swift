@@ -30,13 +30,12 @@ struct RangefinderView: View {
 
     var body: some View {
         ZStack {
-            // Layer 1: Camera preview (full bleed, zoom-scaled)
-            // The ARSCNView is scaled via CGAffineTransform to show the
-            // zoomed center crop. This is purely visual — ARKit's pipeline
-            // (depth maps, intrinsics, neural input) stays at full FOV.
+            // Layer 1: Camera preview (full bleed, hardware-zoomed)
+            // Zoom is applied directly to the capture device by CameraManager —
+            // real lens switching + ISP digital zoom at native quality.
+            // LiDAR depth maps stay at full wide-angle FOV regardless.
             CameraPreviewView(
-                cameraManager: appState.cameraManager,
-                zoomFactor: appState.zoomFactor
+                cameraManager: appState.cameraManager
             )
             .ignoresSafeArea()
 
