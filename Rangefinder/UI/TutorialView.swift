@@ -95,14 +95,15 @@ extension TutorialPage {
             ]
         ),
         TutorialPage(
-            icon: "scope",
+            icon: "circle.grid.3x3.fill",
             iconColor: Theme.milGreen,
-            title: "RETICLE OPTIONS",
-            subtitle: "CONFIGURABLE STYLES",
+            title: "SCENE RANGE OVERLAY",
+            subtitle: "MULTI-POINT DEPTH MAP",
             features: [
-                TutorialFeature(icon: "circle.grid.cross", text: "MIL-DOT: NATO STANDARD, FFP SCALED", color: Theme.milGreen),
-                TutorialFeature(icon: "viewfinder.rectangular", text: "BRACKET: CORNER MARKS — MAXIMUM VISIBILITY", color: Theme.milAmber),
-                TutorialFeature(icon: "viewfinder", text: "RANGEFINDER: DUPLEX + BRACKET MARKS", color: Theme.milGreen),
+                TutorialFeature(icon: "target", text: "CENTER PILL: PRIMARY RANGE AT AIM POINT", color: Theme.milGreen),
+                TutorialFeature(icon: "list.bullet", text: "RANGE LADDER: 4 ANCHOR PILLS ON RIGHT EDGE", color: Theme.milAmber),
+                TutorialFeature(icon: "circle.dotted", text: "SCENE MARKERS SHOW EXACT SAMPLE POINTS", color: Theme.milGreen),
+                TutorialFeature(icon: "checkmark.shield", text: "COHERENCE: GREEN = VERIFIED, AMBER = SUSPECT", color: Theme.milAmber),
             ]
         ),
         TutorialPage(
@@ -113,7 +114,7 @@ extension TutorialPage {
             features: [
                 TutorialFeature(icon: "camera.aperture", text: "0.5X ULTRAWIDE TO 8X OPTICAL TELEPHOTO", color: Theme.milGreen),
                 TutorialFeature(icon: "arrow.up.backward.and.arrow.down.forward", text: "UP TO 25X WITH DIGITAL ZOOM", color: Theme.milAmber),
-                TutorialFeature(icon: "scope", text: "RETICLE GROWS WITH ZOOM — STAYS CALIBRATED", color: Theme.milGreen),
+                TutorialFeature(icon: "hand.pinch", text: "PINCH TO ZOOM — MAG SHOWN IN TOP HUD BAR", color: Theme.milGreen),
             ]
         ),
         TutorialPage(
@@ -122,9 +123,10 @@ extension TutorialPage {
             title: "HUD DISPLAY",
             subtitle: "READING THE RANGE OUTPUT",
             features: [
-                TutorialFeature(icon: "target", text: "RANGE IN YDS/M — CONFIDENCE COLOR CODED", color: Theme.milGreen),
+                TutorialFeature(icon: "target", text: "PRIMARY RANGE IN YDS/M — CONFIDENCE COLORED", color: Theme.milGreen),
                 TutorialFeature(icon: "location.north.line", text: "COMPASS BEARING + ELEVATION ANGLE", color: Theme.milAmber),
                 TutorialFeature(icon: "chart.bar.fill", text: "SOURCE BLEND BAR — SEE SENSOR CONTRIBUTIONS", color: Theme.milGreen),
+                TutorialFeature(icon: "circle.grid.3x3.fill", text: "ANCHOR PILLS VERIFY CENTER AT DIFFERENT DEPTHS", color: Theme.milAmber),
             ]
         ),
         TutorialPage(
@@ -163,41 +165,41 @@ extension TutorialPage {
             title: "GOLF RANGEFINDER",
             subtitle: "PIN DISTANCE MODE",
             features: [
-                TutorialFeature(icon: "scope", text: "STADIAMETRIC RANGING — BRACKET THE PIN", color: Theme.milGreen),
-                TutorialFeature(icon: "ruler", text: "USGA PIN HEIGHT: 7 FT / 2.13M STANDARD", color: Theme.milAmber),
+                TutorialFeature(icon: "ruler", text: "STADIAMETRIC RANGING — KNOWN PIN HEIGHT", color: Theme.milGreen),
+                TutorialFeature(icon: "flag.fill", text: "USGA PIN HEIGHT: 7 FT / 2.13M STANDARD", color: Theme.milAmber),
                 TutorialFeature(icon: "checkmark.seal", text: "ACCURATE 40-250 YDS — NO SUBSCRIPTION REQ", color: Theme.milGreen),
             ]
         ),
         TutorialPage(
             icon: "1.circle.fill",
             iconColor: Theme.milGreen,
-            title: "STEP 1: SELECT TARGET",
-            subtitle: "SETTINGS > STADIAMETRIC",
+            title: "STEP 1: ENABLE STADIA",
+            subtitle: "TAP STADIA IN TOP BAR",
             features: [
-                TutorialFeature(icon: "gearshape", text: "OPEN SETTINGS — STADIAMETRIC RANGING SECTION", color: Theme.milGreen),
-                TutorialFeature(icon: "flag.fill", text: "TAP GOLF PIN PRESET — SETS HEIGHT TO 2.13M", color: Theme.milAmber),
-                TutorialFeature(icon: "scope", text: "SELECT RANGEFINDER OR BRACKET RETICLE", color: Theme.milGreen),
+                TutorialFeature(icon: "ruler", text: "TAP STADIA CHIP IN TOP BAR TO ACTIVATE", color: Theme.milGreen),
+                TutorialFeature(icon: "gearshape", text: "SETTINGS: SELECT GOLF PIN PRESET (2.13M)", color: Theme.milAmber),
+                TutorialFeature(icon: "circle.grid.3x3.fill", text: "SCENE RANGE PILLS SHOW ALL DEPTH READINGS", color: Theme.milGreen),
             ]
         ),
         TutorialPage(
             icon: "2.circle.fill",
             iconColor: Theme.milGreen,
-            title: "STEP 2: FRAME THE PIN",
-            subtitle: "ZOOM + AIM AT FLAGSTICK",
+            title: "STEP 2: AIM AT PIN",
+            subtitle: "ZOOM + CENTER ON FLAGSTICK",
             features: [
                 TutorialFeature(icon: "hand.pinch", text: "PINCH ZOOM 5-8X — PIN MUST BE VISIBLE", color: Theme.milGreen),
-                TutorialFeature(icon: "arrow.up.and.down", text: "CENTER RETICLE ON PIN — BASE TO TOP", color: Theme.milAmber),
+                TutorialFeature(icon: "target", text: "CENTER SCREEN ON FLAGSTICK — BASE TO TOP", color: Theme.milAmber),
                 TutorialFeature(icon: "lock.fill", text: "HOLD STEADY — WAIT FOR STABILITY INDICATOR", color: Theme.milGreen),
             ]
         ),
         TutorialPage(
             icon: "3.circle.fill",
             iconColor: Theme.milGreen,
-            title: "STEP 3: BRACKET & READ",
-            subtitle: "USE STADIA MARKS FOR RANGE",
+            title: "STEP 3: READ RANGE",
+            subtitle: "CENTER PILL SHOWS DISTANCE",
             features: [
-                TutorialFeature(icon: "arrow.up.and.down.square", text: "ALIGN STADIA BRACKET TO SPAN FULL PIN", color: Theme.milGreen),
-                TutorialFeature(icon: "target", text: "RANGE DISPLAYS AUTOMATICALLY IN YDS/M", color: Theme.milAmber),
+                TutorialFeature(icon: "target", text: "CENTER PILL DISPLAYS PIN RANGE IN YDS/M", color: Theme.milGreen),
+                TutorialFeature(icon: "checkmark.shield", text: "ANCHOR PILLS VERIFY — GREEN = CONFIRMED", color: Theme.milAmber),
                 TutorialFeature(icon: "number.circle", text: "TAKE 2-3 READINGS — USE AVERAGE FOR BEST RESULT", color: Theme.milGreen),
             ]
         ),
@@ -220,7 +222,7 @@ extension TutorialPage {
             subtitle: "MAXIMIZE PIN ACCURACY",
             features: [
                 TutorialFeature(icon: "hand.raised", text: "BRACE PHONE ON CART OR BAG FOR STABILITY", color: Theme.milGreen),
-                TutorialFeature(icon: "camera.aperture", text: "USE 5X+ ZOOM — BIGGER PIN = BETTER BRACKET", color: Theme.milAmber),
+                TutorialFeature(icon: "camera.aperture", text: "USE 5X+ ZOOM — PIN NEEDS ENOUGH PIXELS", color: Theme.milAmber),
                 TutorialFeature(icon: "eye", text: "RANGE THE STICK NOT THE FLAG — TOP OF POLE", color: Theme.milGreen),
                 TutorialFeature(icon: "figure.walk", text: "WALK PAST CART PATH MARKERS TO CALIBRATE LIDAR", color: Theme.milAmber),
             ]

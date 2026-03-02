@@ -680,7 +680,7 @@ Tier 2/3 tests use `XCTSkip` when `RANGEFINDER_DATASET_PATH` is not set, ensurin
 
 5. **Object detection coverage:** Size-based ranging only works when recognizable objects are in the field of view and detected with adequate confidence. The KnownObjectDatabase covers people, vehicles, signs, and common animals but is not exhaustive.
 
-6. **Single-point sampling:** The system samples depth at screen center (crosshair). Off-center targets require the user to point the device directly at the target. A future multi-point sampling mode could support area ranging.
+6. **Multi-point anchor coverage:** The scene-aware multi-point system selects up to 4 anchor points using depth edges, object detections, histogram peaks, and high-confidence regions. Scenes with uniform depth (e.g., flat open field with no features) may produce few useful anchors, reducing the spatial coherence validation benefit.
 
 7. **Barometric altimeter availability:** `CMAltimeter.absoluteAltitudeData` requires iOS 15+ and hardware barometer. The absolute altitude API may not be available in all regions or conditions.
 
@@ -704,7 +704,7 @@ Tier 2/3 tests use `XCTSkip` when `RANGEFINDER_DATASET_PATH` is not set, ensurin
 
 6. **Operator guidance unit tests:** Dedicated test coverage for stability classification, respiratory pause detection, and reading lock logic with synthetic IMU data streams.
 
-7. **Multi-target tracking:** Maintain range estimates for multiple crosshair positions simultaneously, enabling rapid target switching without re-acquisition delay.
+7. **Anchor-assisted center correction:** When spatial coherence flags the center reading as suspect, automatically substitute the anchor median as the primary displayed range, with a visual indicator showing the correction is active.
 
 8. **Wind estimation integration:** Incorporate wind speed/direction sensors or manual input for the ballistic solver's lateral drift calculation.
 
@@ -728,8 +728,8 @@ Tier 2/3 tests use `XCTSkip` when `RANGEFINDER_DATASET_PATH` is not set, ensurin
 
 | Metric | Value |
 |---|---|
-| Source files | 52 Swift files |
-| Source lines | ~11,700 |
+| Source files | 58 Swift files |
+| Source lines | ~12,500 |
 | Test files | 24 Swift files |
 | Test lines | ~8,000 |
 | Total lines | ~19,700 |
@@ -742,7 +742,8 @@ Tier 2/3 tests use `XCTSkip` when `RANGEFINDER_DATASET_PATH` is not set, ensurin
 | Swift version | 6.0 (strict concurrency) |
 | Build system | XcodeGen (project.yml) |
 | Target devices | iPhone with LiDAR (12 Pro+) |
-| Reticle styles | 3 (mil-dot, bracket, rangefinder) |
+| Scene range pills | 5 (1 center + 4 ML-selected anchors) |
+| Anchor strategies | 4 (depth edge, object, histogram, confidence) |
 | Guidance hints | 14 types across 3 severity levels |
 | Selection architecture | Semantic source selection (priority state machine) |
 | Kalman filters | 2 (foreground + background hypothesis) |

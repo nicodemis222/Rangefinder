@@ -7,9 +7,9 @@ The Rangefinder implements a **semantic source selection** architecture organize
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  Layer 8: UI Presentation                                    │
-│  RangefinderView → HUDOverlayView → BackgroundRangeChip    │
-│  FFPReticleView(3 styles) → StadiametricBracketOverlay     │
-│  OperatorGuidanceView → MapPiPView → SettingsView          │
+│  RangefinderView → SceneRangeOverlay (5 range pills)       │
+│  SceneCoherenceIndicator → AnchorConsensusView             │
+│  HUDOverlayView → OperatorGuidanceView → SettingsView      │
 ├─────────────────────────────────────────────────────────────┤
 │  Layer 7: Operator Guidance                                  │
 │  OperatorGuidanceEngine (IMU stability + coaching hints)     │
@@ -48,24 +48,33 @@ ARFrame (60 Hz)
   ├─→ Calibration pairs → ContinuousCalibrator ──→ │
   │                                                  ├─→ UnifiedDepthField
   ├─→ IMU pitch ────────→ GeometricEstimator ─────→ │    semanticSelect()
-  │                                                  │         │
-  ├─→ GPS + heading ────→ DEMRaycastEstimator ────→ │    ┌────┴────┐
-  │                        (2 Hz, async)             │    ↓         ↓
-  ├─→ Camera image ─────→ ObjectDetector ─────────→ │  Primary  Background
-  │                        (5 Hz, CoreML+Vision)     │    │         │
-  └─→ User bracket ─────→ StadiametricInput ───────→ ┘    ↓         ↓
-                                                     fgKalman   bgKalman
-                                                        │         │
-  IMU angular velocity ──→ OperatorGuidanceEngine       ↓         ↓
-   (30 Hz, gyroscope)      ├─→ StabilityLevel     Inclination    ↓
-                            ├─→ GuidanceHints      Corrector  bgRange
-                            ├─→ ReadingLock            │
-                            └─→ RespiratoryPause       ↓
-                                                  RangeOutput ──→ feedRange()
-                                                       │            to Guidance
-                                                       ↓
-                                              OperatorGuidanceView
-                                              (StabilityBar + HintChips)
+  │                                                  │    sampleMultiplePoints()
+  ├─→ GPS + heading ────→ DEMRaycastEstimator ────→ │         │
+  │                        (2 Hz, async)             │    ┌────┴────┐
+  ├─→ Camera image ─────→ ObjectDetector ─────────→ │    ↓         ↓
+  │                        (5 Hz, CoreML+Vision)     │  Primary  Background
+  └─→ User bracket ─────→ StadiametricInput ───────→ ┘    │         │
+                                                      fgKalman   bgKalman
+                                                         │         │
+  AnchorPointSelector (3 Hz) ──→ SceneRangeAnalyzer      ↓         ↓
+    ├─→ depth edges               ├─→ coherence      Inclination   ↓
+    ├─→ object hits               └─→ consensus       Corrector  bgRange
+    ├─→ histogram peaks                  │                │
+    └─→ high-conf regions               ↓                ↓
+                                  SceneRangeResult   RangeOutput
+                                  (5 pills, ~3 Hz)        │
+                                        │                 ↓
+  IMU angular velocity ──→ OperatorGuidanceEngine ←── feedRange()
+   (30 Hz, gyroscope)      ├─→ StabilityLevel
+                            ├─→ GuidanceHints
+                            ├─→ ReadingLock
+                            └─→ RespiratoryPause
+                                       │
+                                       ↓
+                            SceneRangeOverlay (5 pills)
+                            SceneCoherenceIndicator
+                            AnchorConsensusView
+                            OperatorGuidanceView
 ```
 
 ---
@@ -489,55 +498,66 @@ The engine produces up to 14 distinct hints organized by priority (100 = highest
 
 ---
 
-## 8. Reticle System
+## 8. Scene-Aware Multi-Point Ranging
 
-### 8.1 Reticle Styles
+The system replaces the single-crosshair reticle with 5 ML-selected range sample points distributed across the scene. Four peripheral "anchor" points provide spatial context for the center (aim point) reading, enabling outside-in validation of long-distance estimates.
 
-Three configurable reticle styles rendered in First Focal Plane (FFP):
+### 8.1 Architecture
 
-**MIL-DOT (NATO standard):**
-- Duplex crosshair arms (thick outer → thin inner)
-- 1-mil interval dots (filled or hollow, configurable)
-- Optional half-mil hash marks
-- Optional mil number labels
-- Center dot
+The multi-point system adds three new components to the per-frame pipeline (step 12 in `RangingEngine.processFrame()`):
 
-**BRACKET (maximum visibility):**
-- L-shaped corner brackets at 1.5 mil from center, 0.5 mil arm length
-- Cardinal reference ticks (0.3 mil, flush with bracket corners)
-- Center dot
-- Red default color — designed for maximum target visibility with unobstructed center
+1. **AnchorPointSelector** — Selects up to 4 anchor positions from existing depth data using four strategies:
+   - *Depth Edge Detection:* Sobel gradient analysis on the neural depth map (16×16 sparse grid). Edges indicate object boundaries with well-defined depth.
+   - *Object Detection Hits:* Screen positions of recognized objects from the `ObjectDetector`, scored by `DepthSourceConfidence.object()` with 1.5× boost.
+   - *Histogram Peak Spatial Mapping:* When the scene is bimodal, maps near/far cluster centroids to spatial positions using an 8×8 grid.
+   - *High-Confidence Regions:* 4×4 macro blocks with 3×3 sub-grids, filtered by coefficient of variation (0.01–0.15) to find stable depth regions.
+   - Spatial spread enforcement: greedy farthest-first, max 1 anchor per quadrant.
+   - Anchor reselection at ~3 Hz (every 5th frame). EMA smoothing (α=0.3) on positions between reselections to prevent pill jitter.
 
-**RANGEFINDER (Vectronix VECTOR style):**
-- Duplex crosshair arms
-- L-shaped corner brackets forming a 2×2 mil square around center
-- Bracket arm length: 0.4 mil
-- Center dot
-- Designed for quick angular size reference and target framing
+2. **UnifiedDepthField.sampleMultiplePoints()** — Calls `semanticSelect()` at each anchor position. No extra neural inference — reuses the depth map buffers already computed this frame. Cost: ~0.5ms for 4 additional `semanticSelect()` calls.
 
-### 8.2 Depth Zone Brackets (Always-On)
+3. **SceneRangeAnalyzer** — Validates spatial coherence across all samples:
+   - Compares each anchor's distance to center distance via ratio threshold (3.0×).
+   - Majority disagree → `.centerSuspect`, all agree → `.allCoherent`.
+   - Per-sample `CoherenceStatus` (`.coherent` / `.inconsistent` / `.noData`).
 
-All reticle styles include an always-on depth zone bracket overlay that visualizes the relationship between the crosshair/fusion reading and the DEM terrain reading:
+### 8.2 Display Throttling
 
-**Inner bracket:** Shows the crosshair depth (fusion result or neural/LiDAR foreground reading). Normally green; turns amber when in disagreement with DEM.
+Range pill values update at **~3 Hz** (every 10th frame), not every frame. This matches the update cadence of military HUDs (SIG Kilo, Vectronix) and ensures numbers are human-readable.
 
-**Outer bracket:** Shows the DEM terrain distance. Normally green; turns cyan when in disagreement with the inner bracket.
+**Hysteresis:** Even at 3 Hz, a publish is skipped unless at least one pill's value has changed by >3% of its current reading. At 100 yds, the number holds steady unless the reading shifts by ±3 yds. This suppresses the sub-yard jitter caused by inverse-depth noise amplification.
 
-**Disagreement detection:** When the ratio between crosshair depth and DEM depth exceeds 2.0×, the brackets change color to signal that the fusion is reading a foreground object while DEM sees further terrain behind it. This gives the operator visual confirmation that terrain routing is active (outer bracket = DEM distance) vs. when the crosshair is reading a near object (inner bracket = object distance).
+**SwiftUI transitions:** When values do update, `.contentTransition(.numericText())` provides smooth digit-roll animation (0.25s ease-in-out).
 
-**Configuration:** The `DepthZoneOverlay` struct in `ReticleConfiguration.swift` computes `isActive` (any valid depth reading), `hasDisagreement` (>2× ratio), and provides `formatDepth()` for bracket labels.
+### 8.3 UI Components
 
-### 8.3 FFP Scaling
+**SceneRangeOverlay** — Full-bleed SwiftUI layer rendering:
+- **Center pill** (larger): source icon + distance + unit + confidence dot. Border color reflects coherence status (green = coherent, amber = suspect).
+- **Anchor pills** (smaller, up to 4): positioned at ML-selected screen coordinates, offset above sampling point. Same visual structure, smaller fonts.
+- **Connecting lines**: dashed lines from each anchor to center, color-coded by coherence (green/amber/dim).
 
-All reticle elements scale proportionally with camera zoom factor, maintaining calibrated angular measurements at any magnification. The `ReticleGeometry` module converts between mils and pixels using:
+**SceneCoherenceIndicator** — Bottom HUD chip showing overall spatial coherence:
+- `VERIFIED` (green): all anchors agree with center.
+- `RANGE SUSPECT` (amber, pulsing): majority of anchors disagree with center — center reading may be unreliable.
+- `PARTIAL` (amber): mixed agreement.
+- `SCANNING` (dim): insufficient anchor data.
 
-```
-pixelsPerMil = (imageWidth / (2 x tan(HFOV/2))) x (PI/3200) x zoomFactor
-```
+**AnchorConsensusView** — When coherence is `.centerSuspect`, displays the anchor median distance as an alternative estimate (e.g., "ANCHOR AVG 340 YDS"). Gives the operator a second opinion from high-confidence peripheral readings.
 
 ### 8.4 Configuration
 
-`ReticleConfiguration` stores: style, color, line widths, opacity, dot fill, hash marks, mil labels, and outline. Settings persisted via `@Published` bindings in `AppState`. Color presets: NVG (phosphor green), DAY (amber), RED.
+All multi-point constants in `AppConfiguration`:
+
+| Constant | Default | Purpose |
+|---|---|---|
+| `anchorReselectInterval` | 5 | Frames between anchor reselection (~3 Hz) |
+| `maxAnchorCount` | 4 | Maximum peripheral anchors |
+| `anchorMinDistanceFromCenter` | 0.10 | Minimum normalized screen distance |
+| `coherenceRatioThreshold` | 3.0 | Max center/anchor depth ratio for coherence |
+| `depthEdgeGridSize` | 16 | Sparse grid resolution for edge detection |
+| `anchorSmoothingAlpha` | 0.3 | EMA alpha for position smoothing |
+| `sceneRangeDisplayInterval` | 10 | Frames between display updates (~3 Hz) |
+| `displayHysteresisPercent` | 0.03 | Min relative change to trigger update (3%) |
 
 ---
 
@@ -829,13 +849,13 @@ Global target: catastrophic rate (>100% error) < 1%, confident-and-bad rate (>50
 
 - **Geometric confidence at gentle slopes:** Add steeper pitch-based penalty for 2–5° angles at 15–30m range (currently the weakest band at 6.2% mean error)
 - **GPS-aware displayed confidence:** Post-fusion confidence modifier that further reduces displayed confidence when GPS accuracy >10m, separate from the fusion weight factor
-- **Dynamic BDC marks:** Scale mil-dot subtension markers on the reticle to match the ballistic drop curve for the selected cartridge
+- **Multi-point anchor weighting:** Weight anchor consensus by per-source confidence so LiDAR anchors carry more authority than neural ones in the coherence vote
 
 ### 18.2 Medium-Term Features
 
 - **LASE button:** Tap-to-lock that freezes the current range reading for 5 seconds, useful for unstable hold positions
 - **Guidance engine unit tests:** Formal test coverage for `OperatorGuidanceEngine` stability analysis, respiratory pause detection, and reading lock logic
-- **Multi-target tracking:** Maintain range estimates for multiple crosshair positions simultaneously
+- **Anchor-assisted center correction:** When center is suspect and anchor consensus is confident, auto-suggest the anchor median as the primary reading
 - **Wind estimation integration:** Incorporate wind speed/direction for ballistic solver lateral drift
 - **Tier 2/3 ground truth testing:** Download real ARKitScenes/DIODE depth maps and images for on-device pipeline validation against laser-scanner ground truth
 

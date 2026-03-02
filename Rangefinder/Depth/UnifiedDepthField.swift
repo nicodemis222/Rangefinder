@@ -95,8 +95,8 @@ class UnifiedDepthField: ObservableObject {
 
     private var latestLiDARDepthMap: CVPixelBuffer?
     private var latestLiDARConfidenceMap: CVPixelBuffer?
-    private var latestNeuralDepthMap: CVPixelBuffer?
-    private var latestObjectDetections: [ObjectRangeResult] = []
+    private(set) var latestNeuralDepthMap: CVPixelBuffer?
+    private(set) var latestObjectDetections: [ObjectRangeResult] = []
 
     // MARK: - Frame Processing
 
@@ -191,6 +191,29 @@ class UnifiedDepthField: ObservableObject {
         )
         crosshairDepth = primary
         backgroundDepth = background ?? .none
+    }
+
+    // MARK: - Multi-Point Sampling
+
+    /// Sample semantic depth at multiple screen points. Calls `semanticSelect()` for
+    /// each point, reusing the existing depth maps already in memory. No extra neural
+    /// inference — just pixel reads from the buffers computed this frame.
+    ///
+    /// Used by the scene-aware multi-point ranging system to get depth estimates
+    /// at anchor positions selected by `AnchorPointSelector`.
+    func sampleMultiplePoints(
+        at points: [CGPoint],
+        timestamp: TimeInterval,
+        bimodal: BimodalAnalysis
+    ) -> [DepthEstimate] {
+        return points.map { point in
+            let (primary, _) = semanticSelect(
+                screenPoint: point,
+                timestamp: timestamp,
+                bimodal: bimodal
+            )
+            return primary
+        }
     }
 
     // MARK: - Concurrent Depth Tasks

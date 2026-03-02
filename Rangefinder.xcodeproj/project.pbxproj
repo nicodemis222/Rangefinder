@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -43,6 +43,7 @@
 		67667D6A5FCA04466E50A348 /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = E3E41109E99C8F47CA71D519 /* manifest.json */; };
 		67E0E1261A58F55E110D865D /* SRTMTileCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C69C0B73EDF9AEA05CA8153 /* SRTMTileCacheTests.swift */; };
 		6851E3E62211ECF9FC8864D8 /* mountain_peak_1500m.jpg in Resources */ = {isa = PBXBuildFile; fileRef = DCC86DCCE94B9D07241C9E6C /* mountain_peak_1500m.jpg */; };
+		69F54AA1B415224DA5E5F4B5 /* SceneRangeAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B4CD9019480C49CA8D16FE /* SceneRangeAnalyzer.swift */; };
 		6CB1DC18F3E06D131B6385CD /* DepthSourceConfidenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4323B73911B5FBD30F5EDC5 /* DepthSourceConfidenceTests.swift */; };
 		7314515D9A598F95A7855DA2 /* ObjectDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06136289CE0032779A92D9E8 /* ObjectDetector.swift */; };
 		7A6326DE6D4859F8F9D0AE5F /* street_cars_30m.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 7EA3E2D889266508041EA2AB /* street_cars_30m.jpg */; };
@@ -50,18 +51,21 @@
 		7E13412543A97C1EE47DA8A9 /* SceneClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9017B4794647C9873FEB5EE /* SceneClassifier.swift */; };
 		81282BC0D53CDCD2A48F1AA5 /* DepthZoneBracketTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44AE08802FEE902490AA9437 /* DepthZoneBracketTests.swift */; };
 		81C1B63E485B9B7033121564 /* RangeDisplayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B07A0A70C0672B16E00D2A1E /* RangeDisplayView.swift */; };
+		8288F15921CF9A01B9DE796B /* AnchorPointSelector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3415814B273CE125878B7319 /* AnchorPointSelector.swift */; };
 		85A4D82B50B29BC6D47CD633 /* CameraIntrinsics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 069EFE446D4EDF04B5229DB2 /* CameraIntrinsics.swift */; };
 		877EB0959A8FFC562BEF90E9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 84415F6DC8BE0037E9D89416 /* Assets.xcassets */; };
 		88963512202D86DAD7EC1579 /* GeometricRangeEstimatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C28DB2D2E7C67287863D0EB /* GeometricRangeEstimatorTests.swift */; };
 		8B9DAD00F2DAE1A4037D1D28 /* MonteCarloFusionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D1A674384D72187F4BBD29A /* MonteCarloFusionTests.swift */; };
 		8C2F1582D77629615114B5CB /* SceneClassifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F73998DE42254B4AA4203639 /* SceneClassifierTests.swift */; };
 		8CC7784C949F8EDD998C7A1D /* InclinationCorrector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E83B551426CBFA365994B7D /* InclinationCorrector.swift */; };
+		8EEEBFFF7E18927BD914C830 /* SceneRangeOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB2669026E54CD392AEB5A8D /* SceneRangeOverlay.swift */; };
 		90A6EF2479EE121E887D16ED /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D44A863B23E4E4DC32DBC8CD /* SettingsView.swift */; };
 		911D26E8D206BC61A8F23C82 /* canyon_800m.jpg in Resources */ = {isa = PBXBuildFile; fileRef = DBBF3868575D4C6B2A1CA0CB /* canyon_800m.jpg */; };
 		93F119506593EB059C6CDFC3 /* StadiametricBracketOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7983D27AADD70F4985A94857 /* StadiametricBracketOverlay.swift */; };
 		96BB853586A33D4E98E32C41 /* mountain_valley_500m.jpg in Resources */ = {isa = PBXBuildFile; fileRef = E523E7F3D0E4C750BB8CE977 /* mountain_valley_500m.jpg */; };
 		9E578D7B1B8C1C5338F676F5 /* HUDOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E63D3077D0F2503633E15F9 /* HUDOverlayView.swift */; };
 		9EB7BA9EB349CDA8D3D55B57 /* BackgroundRangeChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCFF0AA6847071C970917C95 /* BackgroundRangeChip.swift */; };
+		9EF8914E9DD4F0763B956F18 /* SceneRangeSample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80B0E9F4E38E1DFC0811DBF3 /* SceneRangeSample.swift */; };
 		A2427A42DBE0F9C42020F4CD /* ForegroundOccluderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 458C420F13B0EE3AD66312F3 /* ForegroundOccluderTests.swift */; };
 		A6B30ADE77EA6849FE0FB10C /* KnownObjectDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AD8F6E9F8AF25744FE529CD /* KnownObjectDatabase.swift */; };
 		A73E1E3BB280C8546260A7AD /* BallisticsSolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17A421AC6DD8AF53FCAEF9E0 /* BallisticsSolverTests.swift */; };
@@ -73,6 +77,7 @@
 		B0FDA59DE2F647B1B9718280 /* ConfidenceBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE9758DC799E7EABA377336C /* ConfidenceBadge.swift */; };
 		B3647739263980B33236B0D0 /* CameraPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F58D836E1BCE7A4E47D26CF4 /* CameraPreviewView.swift */; };
 		B4549D4248F034CAB30FC00F /* ReticleGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B0BAB2CCB8E8555D84C47D /* ReticleGeometry.swift */; };
+		B5DA1218401236CCA7D8D67D /* SceneCoherenceIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3745A25E27A1F042C77D7EB6 /* SceneCoherenceIndicator.swift */; };
 		B697223DF9680CC2129C00CF /* DepthSourceConfidence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D2163B28D700AAB017B8353 /* DepthSourceConfidence.swift */; };
 		B8632AC72D572EA9D5CD28E2 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 415DB21AB3EFA9FA918BE46D /* LocationManager.swift */; };
 		B919D9DBB64B8A24F73359A9 /* DepthAnythingV2SmallF16.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = F5C4F5EF9EB1A3E5BF37A66B /* DepthAnythingV2SmallF16.mlpackage */; };
@@ -99,6 +104,7 @@
 		E2C0EF783964C204D0038A21 /* cityscape_2000m.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 899FB4F192351A7DFD763325 /* cityscape_2000m.jpg */; };
 		E56EF39A0927FA666AB4A156 /* SRTMDownloadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91C4BD4B37EB6B213F4508E3 /* SRTMDownloadView.swift */; };
 		E673E9D30AF8D598E27B25DD /* FFPReticleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A9AEEBBE440FFB8C8D318A7 /* FFPReticleView.swift */; };
+		E7BF70E021D6212CFFEA3215 /* AnchorConsensusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0F55E723B5ACD6BECC5EDB /* AnchorConsensusView.swift */; };
 		EE38D93347DD068BE17C9D52 /* Measurement+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F61740BEF36F077A009DFF50 /* Measurement+Extensions.swift */; };
 		F037F91EF5074F3BEA29706A /* DepthTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0C4F3681C32C9BFCD838C4D /* DepthTypes.swift */; };
 		F6050568F97DD0967108654F /* MapPiPView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F291088E45895C5F373D18 /* MapPiPView.swift */; };
@@ -124,7 +130,7 @@
 		0E24DF3F600E03EF13CE05BF /* PerformanceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceMonitor.swift; sourceTree = "<group>"; };
 		0E8DE7407ADDFCBDB92BD943 /* InclinationCorrectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InclinationCorrectorTests.swift; sourceTree = "<group>"; };
 		10DA2A1A73FF9D4017697D87 /* MotionAwareSmoother.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionAwareSmoother.swift; sourceTree = "<group>"; };
-		13FCF5D6C84F6E33BA34930E /* DepthPro_Lite.mlpackage */ = {isa = PBXFileReference; path = DepthPro_Lite.mlpackage; sourceTree = "<group>"; };
+		13FCF5D6C84F6E33BA34930E /* DepthPro_Lite.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = DepthPro_Lite.mlpackage; sourceTree = "<group>"; };
 		17A421AC6DD8AF53FCAEF9E0 /* BallisticsSolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BallisticsSolverTests.swift; sourceTree = "<group>"; };
 		19CDF20654C8AAD136617F6C /* TutorialView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TutorialView.swift; sourceTree = "<group>"; };
 		1AD8F6E9F8AF25744FE529CD /* KnownObjectDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnownObjectDatabase.swift; sourceTree = "<group>"; };
@@ -136,11 +142,13 @@
 		2C28DB2D2E7C67287863D0EB /* GeometricRangeEstimatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeometricRangeEstimatorTests.swift; sourceTree = "<group>"; };
 		2E63D3077D0F2503633E15F9 /* HUDOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDOverlayView.swift; sourceTree = "<group>"; };
 		321F8752C585E618AF93172B /* SRTMTileCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SRTMTileCache.swift; sourceTree = "<group>"; };
+		3415814B273CE125878B7319 /* AnchorPointSelector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnchorPointSelector.swift; sourceTree = "<group>"; };
 		34E75E4241D674421EE4605C /* Errors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Errors.swift; sourceTree = "<group>"; };
 		36FC82FB037BDB829FC7BC8C /* TerrainRoutingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerrainRoutingTests.swift; sourceTree = "<group>"; };
+		3745A25E27A1F042C77D7EB6 /* SceneCoherenceIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneCoherenceIndicator.swift; sourceTree = "<group>"; };
 		39694E796327803712092184 /* OperatorGuidanceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperatorGuidanceEngine.swift; sourceTree = "<group>"; };
 		3EEEBE83040B2163C4D0BFE9 /* DEMRaycastEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DEMRaycastEstimator.swift; sourceTree = "<group>"; };
-		412B3F5488ADD4340775BF5E /* Rangefinder.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Rangefinder.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		412B3F5488ADD4340775BF5E /* Rangefinder.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Rangefinder.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		415DB21AB3EFA9FA918BE46D /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
 		44AE08802FEE902490AA9437 /* DepthZoneBracketTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthZoneBracketTests.swift; sourceTree = "<group>"; };
 		458C420F13B0EE3AD66312F3 /* ForegroundOccluderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForegroundOccluderTests.swift; sourceTree = "<group>"; };
@@ -161,6 +169,7 @@
 		7B081E3470EF230871AEE868 /* Configuration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Configuration.swift; sourceTree = "<group>"; };
 		7E83B551426CBFA365994B7D /* InclinationCorrector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InclinationCorrector.swift; sourceTree = "<group>"; };
 		7EA3E2D889266508041EA2AB /* street_cars_30m.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = street_cars_30m.jpg; sourceTree = "<group>"; };
+		80B0E9F4E38E1DFC0811DBF3 /* SceneRangeSample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneRangeSample.swift; sourceTree = "<group>"; };
 		822D822239974489B835B848 /* highway_vehicles_400m.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = highway_vehicles_400m.jpg; sourceTree = "<group>"; };
 		84415F6DC8BE0037E9D89416 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		87DA22642114FFDED3742FFB /* OperatorGuidanceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperatorGuidanceView.swift; sourceTree = "<group>"; };
@@ -186,15 +195,17 @@
 		B3A0C1561834796EF549BDAA /* LiDARDepthProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiDARDepthProvider.swift; sourceTree = "<group>"; };
 		B4323B73911B5FBD30F5EDC5 /* DepthSourceConfidenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthSourceConfidenceTests.swift; sourceTree = "<group>"; };
 		B9017B4794647C9873FEB5EE /* SceneClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneClassifier.swift; sourceTree = "<group>"; };
+		BA0F55E723B5ACD6BECC5EDB /* AnchorConsensusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnchorConsensusView.swift; sourceTree = "<group>"; };
 		BA449D3EADEDB72A52E553DF /* DisagreementPenaltyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisagreementPenaltyTests.swift; sourceTree = "<group>"; };
 		BC3084893C947EAAAE9C12EB /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		BCE3A17AA2A515EB5E0CFD0E /* BimodalTargetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BimodalTargetTests.swift; sourceTree = "<group>"; };
+		C3B4CD9019480C49CA8D16FE /* SceneRangeAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneRangeAnalyzer.swift; sourceTree = "<group>"; };
 		CCFF0AA6847071C970917C95 /* BackgroundRangeChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundRangeChip.swift; sourceTree = "<group>"; };
 		CF53A389BDF937C514CDDB5C /* ReticleGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReticleGeometryTests.swift; sourceTree = "<group>"; };
 		D17DF2E19172557229461C74 /* ObjectRangeEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObjectRangeEstimator.swift; sourceTree = "<group>"; };
 		D44A863B23E4E4DC32DBC8CD /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		D459AF2C79FDD938ABA13EF1 /* building_facade_25m.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = building_facade_25m.jpg; sourceTree = "<group>"; };
-		D61595350577E2AA67C94407 /* SniperScope_Detector.mlpackage */ = {isa = PBXFileReference; path = SniperScope_Detector.mlpackage; sourceTree = "<group>"; };
+		D61595350577E2AA67C94407 /* SniperScope_Detector.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = SniperScope_Detector.mlpackage; sourceTree = "<group>"; };
 		D82FBFE2FFA8A36D6EC6923C /* RangefinderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RangefinderView.swift; sourceTree = "<group>"; };
 		DBBF3868575D4C6B2A1CA0CB /* canyon_800m.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = canyon_800m.jpg; sourceTree = "<group>"; };
 		DCC86DCCE94B9D07241C9E6C /* mountain_peak_1500m.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = mountain_peak_1500m.jpg; sourceTree = "<group>"; };
@@ -208,11 +219,12 @@
 		F2DD9984519EBEF08205101B /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		F36A04B305C1107646754AEF /* BallisticsSolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BallisticsSolver.swift; sourceTree = "<group>"; };
 		F58D836E1BCE7A4E47D26CF4 /* CameraPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreviewView.swift; sourceTree = "<group>"; };
-		F5C4F5EF9EB1A3E5BF37A66B /* DepthAnythingV2SmallF16.mlpackage */ = {isa = PBXFileReference; path = DepthAnythingV2SmallF16.mlpackage; sourceTree = "<group>"; };
+		F5C4F5EF9EB1A3E5BF37A66B /* DepthAnythingV2SmallF16.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = DepthAnythingV2SmallF16.mlpackage; sourceTree = "<group>"; };
 		F61740BEF36F077A009DFF50 /* Measurement+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Measurement+Extensions.swift"; sourceTree = "<group>"; };
 		F73998DE42254B4AA4203639 /* SceneClassifierTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneClassifierTests.swift; sourceTree = "<group>"; };
 		F7F412E51AE17CC08ED8A11C /* BarometricAltitudeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarometricAltitudeTests.swift; sourceTree = "<group>"; };
 		F973E9C77D90E72BFA472B81 /* SRTMRegionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SRTMRegionManager.swift; sourceTree = "<group>"; };
+		FB2669026E54CD392AEB5A8D /* SceneRangeOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneRangeOverlay.swift; sourceTree = "<group>"; };
 		FB84D326739B4B020145B51E /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		FCF8861E29CC0B4668E7F8C7 /* ReticleConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReticleConfiguration.swift; sourceTree = "<group>"; };
 		FD846E404AA2CC54565446D5 /* indoor_desk_1m.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = indoor_desk_1m.jpg; sourceTree = "<group>"; };
@@ -295,6 +307,8 @@
 				39694E796327803712092184 /* OperatorGuidanceEngine.swift */,
 				A8529FBC6DE7DC4D0C6E72D5 /* RangingEngine.swift */,
 				64F46CD8C32CB8D9FE636064 /* RangingTypes.swift */,
+				C3B4CD9019480C49CA8D16FE /* SceneRangeAnalyzer.swift */,
+				80B0E9F4E38E1DFC0811DBF3 /* SceneRangeSample.swift */,
 			);
 			path = Ranging;
 			sourceTree = "<group>";
@@ -346,6 +360,7 @@
 		82A47DA65C8DF9EC93F2D888 /* Depth */ = {
 			isa = PBXGroup;
 			children = (
+				3415814B273CE125878B7319 /* AnchorPointSelector.swift */,
 				1E967CFA49ED5900ABD154FE /* ContinuousCalibrator.swift */,
 				6D2163B28D700AAB017B8353 /* DepthSourceConfidence.swift */,
 				B0C4F3681C32C9BFCD838C4D /* DepthTypes.swift */,
@@ -371,6 +386,7 @@
 		9853BDD000B6764F9B0E71EA /* UI */ = {
 			isa = PBXGroup;
 			children = (
+				BA0F55E723B5ACD6BECC5EDB /* AnchorConsensusView.swift */,
 				CCFF0AA6847071C970917C95 /* BackgroundRangeChip.swift */,
 				DE9758DC799E7EABA377336C /* ConfidenceBadge.swift */,
 				ED35344BD90334679135FF54 /* HoldoverIndicator.swift */,
@@ -379,6 +395,8 @@
 				87DA22642114FFDED3742FFB /* OperatorGuidanceView.swift */,
 				B07A0A70C0672B16E00D2A1E /* RangeDisplayView.swift */,
 				D82FBFE2FFA8A36D6EC6923C /* RangefinderView.swift */,
+				3745A25E27A1F042C77D7EB6 /* SceneCoherenceIndicator.swift */,
+				FB2669026E54CD392AEB5A8D /* SceneRangeOverlay.swift */,
 				D44A863B23E4E4DC32DBC8CD /* SettingsView.swift */,
 				91C4BD4B37EB6B213F4508E3 /* SRTMDownloadView.swift */,
 				7983D27AADD70F4985A94857 /* StadiametricBracketOverlay.swift */,
@@ -528,9 +546,6 @@
 					71A068D993E402B44A028FB6 = {
 						DevelopmentTeam = "";
 					};
-					BB33661DE8F3C7138559F5B0 = {
-						DevelopmentTeam = "";
-					};
 				};
 			};
 			buildConfigurationList = 4808288399723D84E80E509A /* Build configuration list for PBXProject "Rangefinder" */;
@@ -543,7 +558,6 @@
 			);
 			mainGroup = 6095AFB855713DB4F2A4B7E1;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -592,6 +606,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E7BF70E021D6212CFFEA3215 /* AnchorConsensusView.swift in Sources */,
+				8288F15921CF9A01B9DE796B /* AnchorPointSelector.swift in Sources */,
 				BD89E9AA7867B2AFF3FC33BC /* AppState.swift in Sources */,
 				9EB7BA9EB349CDA8D3D55B57 /* BackgroundRangeChip.swift in Sources */,
 				A9ACAAC4AFA609558CE03E5E /* BallisticsSolver.swift in Sources */,
@@ -640,6 +656,10 @@
 				E05DF68A539E91DFC06AD170 /* SRTMRegionManager.swift in Sources */,
 				52365BE05D329733EDCD62CA /* SRTMTileCache.swift in Sources */,
 				7E13412543A97C1EE47DA8A9 /* SceneClassifier.swift in Sources */,
+				B5DA1218401236CCA7D8D67D /* SceneCoherenceIndicator.swift in Sources */,
+				69F54AA1B415224DA5E5F4B5 /* SceneRangeAnalyzer.swift in Sources */,
+				8EEEBFFF7E18927BD914C830 /* SceneRangeOverlay.swift in Sources */,
+				9EF8914E9DD4F0763B956F18 /* SceneRangeSample.swift in Sources */,
 				90A6EF2479EE121E887D16ED /* SettingsView.swift in Sources */,
 				0314308A7F42F380E86776C5 /* SniperScope_Detector.mlpackage in Sources */,
 				93F119506593EB059C6CDFC3 /* StadiametricBracketOverlay.swift in Sources */,
@@ -698,6 +718,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = DCGN5QTCKT;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIRequiredDeviceCapabilities = "arm64 arkit lidar";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -825,6 +846,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = DCGN5QTCKT;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIRequiredDeviceCapabilities = "arm64 arkit lidar";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;

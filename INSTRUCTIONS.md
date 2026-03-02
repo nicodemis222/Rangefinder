@@ -168,14 +168,19 @@ Rangefinder/
 
 ### Main Screen
 
-On launch, the app displays a live camera feed with a configurable reticle centered on screen. The primary range readout appears at the top center.
+On launch, the app displays a live camera feed with 5 range pills overlaid on the scene at ML-selected positions. The center pill shows the primary range for the aim point; up to 4 peripheral anchor pills provide spatial context and cross-validation. The primary range readout also appears at the top center as a large HUD number.
 
-**Range Display:**
+**Scene Range Overlay:**
+- **Center pill** (larger): distance + source icon + confidence dot at screen center. Border turns amber when spatial coherence is suspect.
+- **Anchor pills** (smaller, up to 4): positioned at depth edges, detected objects, histogram peaks, or high-confidence regions. Provide outside-in validation of the center reading.
+- **Connecting lines**: dashed lines from each anchor to center, color-coded by coherence.
+- Pills update at ~3 Hz with hysteresis — numbers hold steady unless the reading shifts by >3%.
+
+**Range Display (top HUD):**
 - Large number: estimated range in yards or meters
 - Confidence dot: color-coded (green/amber/red)
 - Uncertainty: inline ± value when significant
 - Source blend bar: visual breakdown of source weights (bottom zone)
-- **Depth zone brackets**: inner bracket = crosshair/fusion depth, outer bracket = DEM terrain depth. Brackets change color (amber/cyan) when disagreement is detected (>2× ratio between crosshair and DEM readings)
 
 **HUD Elements:**
 
@@ -191,7 +196,8 @@ On launch, the app displays a live camera feed with a configurable reticle cente
 - **MAP**: toggle DEM map picture-in-picture (amber when active, requires GPS)
 
 *Bottom Zone:*
-- **Semantic decision label**: shows which source won (e.g., "DEM", "LIDAR", "NEURAL")
+- **Coherence indicator**: spatial coherence status — VERIFIED (green), RANGE SUSPECT (amber, pulsing), PARTIAL, or SCANNING
+- **Anchor consensus**: when center is suspect, shows anchor median distance as an alternative estimate (e.g., "ANCHOR AVG 340 YDS")
 - **BG chip**: background hypothesis range + source (e.g., "BG DEM 600 YDS")
 - **Source blend bar**: visual breakdown of active source weights + legend
 - **Holdover**: ballistic correction in mils (when enabled)
@@ -213,9 +219,6 @@ Tap the menu icon (☰) to open settings:
 
 - **Display Unit**: yards or meters
 - **Camera Height**: adjustable for prone (0.3m), standing (1.5m), tripod, or vehicle mounting
-- **Reticle Style**: MIL-DOT (NATO standard with dots/hashes), BRACKET (L-shaped corner marks, red default, maximum visibility), RANGEFINDER (duplex + Vectronix-style ranging brackets)
-- **Reticle Color**: phosphor green, red, amber, purple (NVG/DAY/RED presets)
-- **Reticle Options**: line width, outline toggle; mil-dot style adds filled dots, hash marks, mil labels toggles
 - **Ballistics**: enable/disable, caliber selection (.308 Win, 5.56 NATO, 6.5 CM, .300 WM, .338 NM, .338 LM), zero distance
 - **Stadiametric Ranging**: target height slider (0.3–12.0m), 8 presets (PERSON, VEHICLE, DEER, DOOR, FENCE POST, POWER POLE, WINDOW, GOLF PIN) displayed in 2 rows with active-state highlighting
 - **Terrain Ranging**: GPS status, altitude, DEM status, terrain data tile management
@@ -311,17 +314,14 @@ The operator guidance engine analyzes IMU data in real-time to coach the user on
 
 **Reading Lock:** When the displayed range has been stable within 5% for 2+ seconds, displays "READING LOCKED" as confirmation.
 
-### Reticle Styles
+### Scene Range Pills
 
-Three configurable reticle styles, all rendered in First Focal Plane (FFP) — the reticle scales proportionally with zoom so angular measurements remain calibrated at any magnification:
+Instead of a fixed crosshair reticle, the app displays 5 range pills at ML-selected positions on the camera feed:
 
-| Style | Description | Best For |
-|---|---|---|
-| MIL-DOT | NATO standard with 1-mil dots + optional half-mil hashes + mil labels | Angular measurement, wind holds, range estimation by subtension |
-| BRACKET | L-shaped corner marks (1.5 mil) with center reference ticks, red default | Maximum target visibility, unobstructed center |
-| RANGEFINDER | Duplex crosshair + Vectronix-style L-shaped corner brackets (2×2 mil square) | Quick angular size reference, target framing |
-
-All reticle styles include always-on depth zone brackets that show the relationship between the crosshair reading and DEM terrain distance.
+- **Center pill**: primary range estimate at screen center (aim point). Larger, with source icon and confidence dot.
+- **Anchor pills** (up to 4): positioned at scene features with strong ranging confidence — depth edges, recognized objects, bimodal cluster centroids, or low-variance regions. Smaller, positioned near the sampled location.
+- **Coherence coloring**: pill borders turn green when spatially coherent with the center reading, amber when inconsistent. If the majority of anchors disagree with center, the system flags it as "RANGE SUSPECT".
+- **Update rate**: ~3 Hz with 3% hysteresis — numbers hold steady, no rapid flickering.
 
 ### Ballistics
 

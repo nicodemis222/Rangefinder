@@ -26,7 +26,6 @@ struct RangefinderView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.scenePhase) private var scenePhase
     @State private var isPinching = false
-    @State private var showPinchHint = true
 
     var body: some View {
         ZStack {
@@ -39,31 +38,16 @@ struct RangefinderView: View {
             )
             .ignoresSafeArea()
 
-            // Layer 2: FFP Reticle (scales with zoom, full bleed)
-            // Depth zone brackets appear when bimodal detection is active
-            FFPReticleView(
-                zoomFactor: appState.zoomFactor,
-                configuration: appState.reticleConfig,
-                depthZones: appState.depthZoneOverlay
+            // Layer 2: Scene-aware multi-point range overlay
+            // Renders 5 range pills at ML-selected positions on the camera feed
+            SceneRangeOverlay(
+                result: appState.sceneRangeResult,
+                displayUnit: appState.displayUnit
             )
             .ignoresSafeArea()
             .allowsHitTesting(false)
 
-            // Layer 2b: Stadiametric bracket overlay (when active)
-            if appState.isStadiametricMode {
-                StadiametricBracketOverlay { pixelSize in
-                    appState.updateStadiametricInput(pixelSize: pixelSize)
-                }
-                .ignoresSafeArea()
-            }
-
-            // Layer 3: Pinch-to-zoom hint (near crosshair, fades after first pinch)
-            if showPinchHint && !isPinching {
-                PinchZoomHint(zoomFactor: appState.zoomFactor)
-                    .transition(.opacity)
-            }
-
-            // Layer 4: HUD elements — data in fixed zones, reticle stays clear
+            // Layer 3: HUD elements — data in fixed zones
             VStack(spacing: 0) {
                 // === TOP ZONE: chips + range + holdover ===
                 VStack(spacing: 6) {
@@ -92,11 +76,20 @@ struct RangefinderView: View {
 
                 Spacer()
 
-                // === BOTTOM ZONE: semantic label + background chip + source blend ===
+                // === BOTTOM ZONE: coherence + consensus + background chip + source blend ===
                 VStack(spacing: 4) {
-                    // Semantic decision label (which source won)
-                    if appState.semanticDecision != .none {
-                        SemanticDecisionLabel(decision: appState.semanticDecision)
+                    // Spatial coherence indicator (replaces semantic decision label)
+                    SceneCoherenceIndicator(
+                        coherence: appState.sceneRangeResult.spatialCoherence
+                    )
+
+                    // Anchor consensus — shown when center is suspect
+                    if appState.sceneRangeResult.spatialCoherence == .centerSuspect,
+                       let median = appState.sceneRangeResult.anchorMedianMeters {
+                        AnchorConsensusView(
+                            anchorMedianMeters: median,
+                            displayUnit: appState.displayUnit
+                        )
                     }
 
                     // Background hypothesis chip (alternate reading)
@@ -421,11 +414,6 @@ struct RangefinderView: View {
                 if !isPinching {
                     isPinching = true
                     appState.zoomController.handlePinchBegan()
-                    if showPinchHint {
-                        withAnimation(.easeOut(duration: 0.3)) {
-                            showPinchHint = false
-                        }
-                    }
                 }
                 appState.handleZoom(magnification: value.magnification)
             }
@@ -597,55 +585,7 @@ struct ConfidenceDot: View {
     }
 }
 
-// MARK: - Pinch-to-Zoom Hint (tactical styling)
-
-struct PinchZoomHint: View {
-    let zoomFactor: CGFloat
-    @State private var pulsePhase = false
-
-    var body: some View {
-        VStack(spacing: 6) {
-            Spacer()
-
-            VStack(spacing: 4) {
-                Image(systemName: "arrow.up.left.and.arrow.down.right")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(Theme.milGreen.opacity(0.35))
-                    .scaleEffect(pulsePhase ? 1.15 : 1.0)
-
-                Text("MAG \(zoomText)")
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundColor(Theme.milGreen.opacity(0.35))
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(
-                RoundedRectangle(cornerRadius: Theme.hudCornerRadius)
-                    .fill(Theme.panelBackground.opacity(0.6))
-            )
-            .offset(y: 60)
-
-            Spacer()
-            Spacer()
-        }
-        .allowsHitTesting(false)
-        .onAppear {
-            withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
-                pulsePhase = true
-            }
-        }
-    }
-
-    private var zoomText: String {
-        if zoomFactor < 1.0 {
-            return String(format: "%.1fx", zoomFactor)
-        } else if zoomFactor == floor(zoomFactor) {
-            return String(format: "%.0fx", zoomFactor)
-        } else {
-            return String(format: "%.1fx", zoomFactor)
-        }
-    }
-}
+// (PinchZoomHint removed — zoom is discoverable via MAG chip in top bar)
 
 // MARK: - Loading Overlay (tactical "INITIALIZING")
 

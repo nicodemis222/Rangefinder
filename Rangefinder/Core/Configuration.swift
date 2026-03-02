@@ -113,6 +113,41 @@ struct AppConfiguration {
     /// detection take over.
     static let neuralHardCapMeters: Float = 150.0
 
+    // MARK: - Scene-Aware Multi-Point Ranging
+
+    /// How often to reselect anchor points (every N frames at ~15 FPS depth rate).
+    /// Anchors don't need to change every frame — scene structure is stable at ~3 Hz.
+    static let anchorReselectInterval: Int = 5
+
+    /// Maximum number of anchor points (excluding center).
+    static let maxAnchorCount: Int = 4
+
+    /// Minimum normalized distance from center to accept an anchor.
+    /// Anchors too close to center don't provide useful spatial context.
+    static let anchorMinDistanceFromCenter: Float = 0.10
+
+    /// Maximum ratio between center and anchor distances for coherence.
+    /// If ratio exceeds this, the pair is considered inconsistent.
+    static let coherenceRatioThreshold: Float = 3.0
+
+    /// Sparse grid size for depth edge detection.
+    static let depthEdgeGridSize: Int = 16
+
+    /// Exponential moving average alpha for anchor position smoothing.
+    static let anchorSmoothingAlpha: Float = 0.3
+
+    /// Display update cadence for scene range pills (every N frames).
+    /// At 30 FPS camera rate this yields ~3 Hz visual updates — fast enough
+    /// to feel responsive, slow enough for a human to actually read the number.
+    /// Military HUDs (SIG Kilo, Vectronix) refresh range at 2-4 Hz.
+    static let sceneRangeDisplayInterval: Int = 10
+
+    /// Minimum relative change in a pill's distance before the display updates.
+    /// Suppresses sub-yard jitter (e.g., 124→125→124 bouncing). A reading must
+    /// shift by more than this fraction of its current value to re-render.
+    /// 0.03 = 3%: at 100 yds the number holds steady unless it moves ±3 yds.
+    static let displayHysteresisPercent: Float = 0.03
+
     // MARK: - Stadiametric Target Presets
 
     /// Known target sizes for stadiametric (pinhole) ranging.

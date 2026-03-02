@@ -42,6 +42,7 @@ class AppState: ObservableObject {
     @Published var showMapPiP: Bool = false
     @Published var demHitCoordinate: CLLocationCoordinate2D?
     @Published var semanticDecision: SemanticSourceDecision = .none
+    @Published var sceneRangeResult: SceneRangeResult = .empty
     @Published var cameraHeight: Float = AppConfiguration.defaultCameraHeight {
         didSet {
             UserDefaults.standard.set(cameraHeight, forKey: "cameraHeight")
@@ -145,6 +146,10 @@ class AppState: ObservableObject {
         // Forward semantic decision
         depthField.$semanticDecision
             .assign(to: &$semanticDecision)
+
+        // Forward scene range result (multi-point ranging)
+        rangingEngine.$sceneRangeResult
+            .assign(to: &$sceneRangeResult)
 
         // Forward pitch and heading from inclination manager
         inclinationManager.$pitchDegrees

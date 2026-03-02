@@ -37,6 +37,13 @@ class RangingEngine: ObservableObject {
     weak var performanceMonitor: PerformanceMonitor?
     weak var locationManager: LocationManager?
 
+    // MARK: - Scene-Aware Multi-Point Ranging
+
+    @Published var sceneRangeResult: SceneRangeResult = .empty
+    private let anchorSelector = AnchorPointSelector()
+    private let sceneAnalyzer = SceneRangeAnalyzer()
+    private var sceneRangeFrameCount: Int = 0
+
     // MARK: - Multi-Hypothesis Tracking
 
     @Published var backgroundRange: RangeOutput = .none
@@ -236,6 +243,15 @@ class RangingEngine: ObservableObject {
         } else {
             backgroundRange = .none
         }
+
+        // 12. Scene-aware multi-point ranging
+        //     Throttled to ~3 Hz (every sceneRangeDisplayInterval frames) so
+        //     the pill numbers update at a human-readable cadence. Between
+        //     updates the previous result stays on screen — no flicker.
+        sceneRangeFrameCount += 1
+        if sceneRangeFrameCount % AppConfiguration.sceneRangeDisplayInterval == 0 {
+            updateSceneRangeResult(depthEstimate: depthEstimate, frameData: frameData)
+        }
     }
 
     /// Emit a range output from Kalman prediction (no fresh measurement available).
@@ -264,6 +280,80 @@ class RangingEngine: ObservableObject {
             inclinationCorrectionFactor: correctionFactor,
             primarySource: .semantic,
             sourceWeights: [:],
+            timestamp: Date()
+        )
+    }
+
+    // MARK: - Scene Range Update (throttled + hysteresis)
+
+    /// Build and publish multi-point scene range. Called at ~3 Hz, NOT every frame.
+    /// Includes hysteresis: if the displayed values haven't moved by more than
+    /// `displayHysteresisPercent` (default 3%), we skip the publish entirely —
+    /// the old numbers stay on screen, no flicker.
+    private func updateSceneRangeResult(depthEstimate: DepthEstimate, frameData: FrameData) {
+        let anchorPoints = anchorSelector.selectAnchors(
+            neuralDepthMap: depthField.latestNeuralDepthMap,
+            objectDetections: depthField.latestObjectDetections,
+            bimodalAnalysis: depthField.latestBimodalAnalysis
+        )
+
+        let centerSample = SceneRangeSample(
+            id: UUID(),
+            screenPoint: CGPoint(x: 0.5, y: 0.5),
+            estimate: depthEstimate,
+            isCenter: true,
+            selectionReason: .center,
+            coherenceStatus: .noData
+        )
+
+        let anchorEstimates = depthField.sampleMultiplePoints(
+            at: anchorPoints.map { $0.point },
+            timestamp: frameData.timestamp,
+            bimodal: depthField.latestBimodalAnalysis
+        )
+
+        var allSamples = [centerSample]
+        for (i, anchor) in anchorPoints.enumerated() where i < anchorEstimates.count {
+            allSamples.append(SceneRangeSample(
+                id: UUID(),
+                screenPoint: anchor.point,
+                estimate: anchorEstimates[i],
+                isCenter: false,
+                selectionReason: anchor.reason,
+                coherenceStatus: .noData
+            ))
+        }
+
+        let coherence = sceneAnalyzer.validateCoherence(
+            center: centerSample,
+            anchors: allSamples.filter { !$0.isCenter }
+        )
+        sceneAnalyzer.assignSampleCoherence(
+            samples: &allSamples,
+            centerDistance: depthEstimate.distanceMeters
+        )
+
+        // Hysteresis: skip publish if all values are within threshold of previous
+        let threshold = AppConfiguration.displayHysteresisPercent
+        if !sceneRangeResult.samples.isEmpty,
+           sceneRangeResult.samples.count == allSamples.count,
+           sceneRangeResult.spatialCoherence == coherence {
+            let allStable = zip(sceneRangeResult.samples, allSamples).allSatisfy { old, new in
+                guard old.estimate.isValid, new.estimate.isValid else {
+                    return old.estimate.isValid == new.estimate.isValid
+                }
+                let oldD = old.estimate.distanceMeters
+                let newD = new.estimate.distanceMeters
+                guard oldD > 0.1 else { return true }
+                let relChange = abs(Float(newD - oldD)) / Float(oldD)
+                return relChange < threshold
+            }
+            if allStable { return }  // No material change — keep old values on screen
+        }
+
+        sceneRangeResult = SceneRangeResult(
+            samples: allSamples,
+            spatialCoherence: coherence,
             timestamp: Date()
         )
     }
@@ -480,6 +570,7 @@ class RangingEngine: ObservableObject {
         depthField.demEstimator?.reset()
         currentRange = .none
         backgroundRange = .none
+        sceneRangeResult = .empty
         previousSemanticDecision = .none
     }
 }
