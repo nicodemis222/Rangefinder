@@ -13,6 +13,7 @@
 //  - GPS quality warnings: when DEM/terrain ranging is degraded
 //  - Light level warnings: when neural depth accuracy drops
 //  - Calibration status: when LiDAR calibration is stale
+//  - Steep angle warnings: when cosine correction is large
 //
 //  Military doctrine (FM 23-10, TC 3-22.10):
 //  - Best readings during natural respiratory pause (bottom of exhale)
@@ -29,7 +30,7 @@ import Combine
 
 // MARK: - Guidance Hint Types
 
-enum GuidanceHint: Equatable {
+enum GuidanceHint: Equatable, Hashable {
     // Stability hints
     case holdSteady           // High motion detected — operator should stabilize
     case stabilized           // Good stability — optimal for reading
@@ -53,6 +54,10 @@ enum GuidanceHint: Equatable {
     case demDownloading       // SRTM terrain data is being downloaded
     case terrainRangeLimited  // LST mode, range suspiciously short, DEM needs tiles
 
+    // Angle hints
+    case steepAngle           // Pitch > 45° — large cosine correction applied
+    case ballisticsAngleWarning // Pitch > 60° with ballistics enabled — solution unreliable
+
     // Technique hints
     case respiratoryPause     // Breathing pause detected — optimal capture window
     case readingLocked        // Reading stable for 2+ seconds — good capture
@@ -60,70 +65,76 @@ enum GuidanceHint: Equatable {
 
     var message: String {
         switch self {
-        case .holdSteady:          return "HOLD STEADY"
-        case .stabilized:          return "STABILIZED"
-        case .braceDevice:         return "BRACE DEVICE"
-        case .excessiveMotion:     return "EXCESSIVE MOTION"
-        case .lowLight:            return "LOW LIGHT"
-        case .gpsAcquiring:        return "GPS ACQUIRING"
-        case .gpsLowAccuracy:      return "GPS LOW ACCURACY"
-        case .compassInterference: return "COMPASS INTERFERENCE"
-        case .rangeUncorroborated: return "RANGE UNCORROBORATED"
-        case .demUnavailable:      return "NO TERRAIN DATA"
-        case .demDownloading:      return "DOWNLOADING TERRAIN"
-        case .terrainRangeLimited: return "DL TERRAIN TILES"
-        case .calibrating:         return "CALIBRATING"
-        case .calibrationStale:    return "CAL AGING — WALK CLOSE"
-        case .calibrationNeeded:   return "CAL NEEDED — WALK CLOSE"
-        case .respiratoryPause:    return "CAPTURE WINDOW"
-        case .readingLocked:       return "READING LOCKED"
-        case .multipleReadings:    return "MULTIPLE READINGS REC"
+        case .holdSteady:              return "HOLD STEADY"
+        case .stabilized:              return "STABILIZED"
+        case .braceDevice:             return "BRACE DEVICE"
+        case .excessiveMotion:         return "EXCESSIVE MOTION"
+        case .lowLight:                return "LOW LIGHT"
+        case .gpsAcquiring:            return "GPS ACQUIRING"
+        case .gpsLowAccuracy:          return "GPS LOW ACCURACY"
+        case .compassInterference:     return "COMPASS INTERFERENCE"
+        case .rangeUncorroborated:     return "RANGE UNCORROBORATED"
+        case .demUnavailable:          return "NO TERRAIN DATA"
+        case .demDownloading:          return "DOWNLOADING TERRAIN"
+        case .terrainRangeLimited:     return "DOWNLOAD TERRAIN"
+        case .calibrating:             return "CALIBRATING"
+        case .calibrationStale:        return "CAL AGING — WALK CLOSE"
+        case .calibrationNeeded:       return "CAL NEEDED — WALK CLOSE"
+        case .steepAngle:              return "STEEP ANGLE"
+        case .ballisticsAngleWarning:  return "ANGLE — VERIFY SOLUTION"
+        case .respiratoryPause:        return "STEADY — TAKE READING"
+        case .readingLocked:           return "READING LOCKED"
+        case .multipleReadings:        return "MULTIPLE READINGS REC"
         }
     }
 
     var icon: String {
         switch self {
-        case .holdSteady:          return "hand.raised"
-        case .stabilized:          return "checkmark.circle"
-        case .braceDevice:         return "rectangle.and.hand.point.up.left"
-        case .excessiveMotion:     return "exclamationmark.triangle"
-        case .lowLight:            return "sun.min"
-        case .gpsAcquiring:        return "location.slash"
-        case .gpsLowAccuracy:      return "location.circle"
-        case .rangeUncorroborated: return "exclamationmark.triangle.fill"
-        case .demUnavailable:      return "mountain.2"
-        case .demDownloading:      return "icloud.and.arrow.down"
-        case .terrainRangeLimited: return "square.and.arrow.down"
-        case .compassInterference: return "location.north.line"
-        case .calibrating:         return "sensor.fill"
-        case .calibrationStale:    return "clock.arrow.circlepath"
-        case .calibrationNeeded:   return "exclamationmark.circle"
-        case .respiratoryPause:    return "circle.circle"
-        case .readingLocked:       return "lock.fill"
-        case .multipleReadings:    return "number.circle"
+        case .holdSteady:              return "hand.raised"
+        case .stabilized:              return "checkmark.circle"
+        case .braceDevice:             return "rectangle.and.hand.point.up.left"
+        case .excessiveMotion:         return "exclamationmark.triangle"
+        case .lowLight:                return "sun.min"
+        case .gpsAcquiring:            return "location.slash"
+        case .gpsLowAccuracy:          return "location.circle"
+        case .rangeUncorroborated:     return "exclamationmark.triangle.fill"
+        case .demUnavailable:          return "mountain.2"
+        case .demDownloading:          return "icloud.and.arrow.down"
+        case .terrainRangeLimited:     return "square.and.arrow.down"
+        case .compassInterference:     return "location.north.line"
+        case .calibrating:             return "sensor.fill"
+        case .calibrationStale:        return "clock.arrow.circlepath"
+        case .calibrationNeeded:       return "exclamationmark.circle"
+        case .steepAngle:              return "angle"
+        case .ballisticsAngleWarning:  return "scope"
+        case .respiratoryPause:        return "circle.circle"
+        case .readingLocked:           return "lock.fill"
+        case .multipleReadings:        return "number.circle"
         }
     }
 
     var priority: Int {
         switch self {
-        case .rangeUncorroborated: return 105
-        case .excessiveMotion:     return 100
-        case .demUnavailable:      return 95
-        case .terrainRangeLimited: return 97
-        case .demDownloading:      return 45
-        case .calibrationNeeded:   return 90
-        case .holdSteady:          return 80
-        case .braceDevice:         return 75
-        case .lowLight:            return 70
-        case .gpsAcquiring:        return 65
-        case .gpsLowAccuracy:      return 60
-        case .compassInterference: return 55
-        case .calibrationStale:    return 50
-        case .calibrating:         return 40
-        case .multipleReadings:    return 30
-        case .respiratoryPause:    return 25
-        case .readingLocked:       return 20
-        case .stabilized:          return 10
+        case .rangeUncorroborated:     return 105
+        case .excessiveMotion:         return 100
+        case .demUnavailable:          return 95
+        case .terrainRangeLimited:     return 97
+        case .ballisticsAngleWarning:  return 88
+        case .steepAngle:              return 85
+        case .demDownloading:          return 45
+        case .calibrationNeeded:       return 90
+        case .holdSteady:              return 80
+        case .braceDevice:             return 75
+        case .lowLight:                return 70
+        case .gpsAcquiring:            return 65
+        case .gpsLowAccuracy:          return 60
+        case .compassInterference:     return 55
+        case .calibrationStale:        return 50
+        case .calibrating:             return 40
+        case .multipleReadings:        return 30
+        case .respiratoryPause:        return 25
+        case .readingLocked:           return 20
+        case .stabilized:              return 10
         }
     }
 
@@ -133,11 +144,11 @@ enum GuidanceHint: Equatable {
             return .positive
         case .holdSteady, .calibrationStale, .multipleReadings,
              .gpsLowAccuracy, .compassInterference, .demUnavailable,
-             .demDownloading:
+             .demDownloading, .steepAngle:
             return .caution
         case .excessiveMotion, .braceDevice, .lowLight,
              .gpsAcquiring, .calibrationNeeded, .rangeUncorroborated,
-             .terrainRangeLimited:
+             .terrainRangeLimited, .ballisticsAngleWarning:
             return .warning
         }
     }
@@ -152,11 +163,11 @@ enum HintSeverity {
 // MARK: - Stability Level
 
 enum StabilityLevel: Int, Comparable {
-    case unstable = 0     // Angular velocity > 0.3 rad/s — panning/shaking
-    case marginal = 1     // 0.1 - 0.3 rad/s — moving but usable
-    case adequate = 2     // 0.05 - 0.1 rad/s — tracking, moderate stability
-    case good = 3         // 0.02 - 0.05 rad/s — held steady, some drift
-    case excellent = 4    // < 0.02 rad/s — braced/tripod quality
+    case unstable = 0     // Angular velocity > threshold — panning/shaking
+    case marginal = 1     // Moving but usable
+    case adequate = 2     // Tracking, moderate stability
+    case good = 3         // Held steady, some drift
+    case excellent = 4    // Braced/tripod quality
 
     static func < (lhs: StabilityLevel, rhs: StabilityLevel) -> Bool {
         lhs.rawValue < rhs.rawValue
@@ -222,6 +233,22 @@ class OperatorGuidanceEngine: ObservableObject {
     var isDEMFarField: Bool = false            // DEM producing estimates >200m
     var isLSTMode: Bool = false                // Far-target priority (LAST TARGET)
     var cameraPitchDegrees: Double = 0         // Camera pitch (negative = looking down)
+    var isBallisticsEnabled: Bool = false       // Whether ballistics solver is active
+
+    // MARK: - Adaptive Stability Thresholds
+
+    /// At steep angles, holding the phone steady is physically harder.
+    /// Relax stability thresholds proportionally to acknowledge ergonomic reality.
+    ///
+    /// 0–30°: 1.0× (normal thresholds)
+    /// 30–60°: up to 1.5× (moderate relaxation)
+    /// 60–85°: up to 2.0× (significant relaxation — arm extended overhead/below)
+    private var stabilityRelaxationFactor: Double {
+        let absPitch = abs(cameraPitchDegrees)
+        if absPitch < 30 { return 1.0 }
+        if absPitch < 60 { return 1.0 + (absPitch - 30.0) / 60.0 }  // 1.0 → 1.5
+        return 1.5 + (min(absPitch, 85.0) - 60.0) / 50.0            // 1.5 → 2.0
+    }
 
     // MARK: - Update
 
@@ -268,14 +295,19 @@ class OperatorGuidanceEngine: ObservableObject {
         let smoothedAV = angularVelocityHistory.suffix(5).reduce(0, +)
             / Double(min(5, angularVelocityHistory.count))
 
+        // Apply adaptive relaxation for steep angles.
+        // At 75°, thresholds expand by ~2×, so the operator isn't punished
+        // for the physical difficulty of holding a phone at extreme pitch.
+        let relax = stabilityRelaxationFactor
+
         let newLevel: StabilityLevel
-        if smoothedAV > 0.3 {
+        if smoothedAV > 0.3 * relax {
             newLevel = .unstable
-        } else if smoothedAV > 0.1 {
+        } else if smoothedAV > 0.1 * relax {
             newLevel = .marginal
-        } else if smoothedAV > 0.05 {
+        } else if smoothedAV > 0.05 * relax {
             newLevel = .adequate
-        } else if smoothedAV > 0.02 {
+        } else if smoothedAV > 0.02 * relax {
             newLevel = .good
         } else {
             newLevel = .excellent
@@ -283,9 +315,8 @@ class OperatorGuidanceEngine: ObservableObject {
 
         stabilityLevel = newLevel
 
-        // Stability percent: map angular velocity to 0-1
-        // 0.3 rad/s → 0.0, 0.0 rad/s → 1.0
-        stabilityPercent = Float(max(0, min(1, 1.0 - smoothedAV / 0.3)))
+        // Stability percent: map angular velocity to 0-1, with relaxed ceiling
+        stabilityPercent = Float(max(0, min(1, 1.0 - smoothedAV / (0.3 * relax))))
 
         // Track durations
         if newLevel <= .marginal {
@@ -303,7 +334,7 @@ class OperatorGuidanceEngine: ObservableObject {
     /// that occurs at the bottom of each exhale cycle. In shooting, this 2-3
     /// second window is optimal for taking a reading.
     ///
-    /// Pattern: motion → stillness transition with angular velocity < 0.02 rad/s
+    /// Pattern: motion → stillness transition with angular velocity < threshold
     private func detectRespiratoryPause(angularVelocity: Double) {
         // Need at least 10 samples of history
         guard angularVelocityHistory.count >= 10 else {
@@ -311,7 +342,9 @@ class OperatorGuidanceEngine: ObservableObject {
             return
         }
 
-        // Current motion must be very low
+        let relax = stabilityRelaxationFactor
+
+        // Current motion must be very low (relaxed at steep angles)
         let recent3 = Array(angularVelocityHistory.suffix(3))
         let currentAvg = recent3.reduce(0, +) / Double(recent3.count)
 
@@ -320,9 +353,9 @@ class OperatorGuidanceEngine: ObservableObject {
         let earlierAvg = earlier.reduce(0, +) / Double(earlier.count)
 
         // Pattern: was moving, now still (transition to stillness)
-        if currentAvg < 0.02 && earlierAvg > 0.05 {
+        if currentAvg < 0.02 * relax && earlierAvg > 0.05 * relax {
             isCapturePrimed = true
-        } else if currentAvg > 0.05 {
+        } else if currentAvg > 0.05 * relax {
             isCapturePrimed = false
         }
         // If already primed and still steady, keep primed
@@ -387,6 +420,20 @@ class OperatorGuidanceEngine: ObservableObject {
         // --- Reading locked ---
         if isReadingLocked && stabilityLevel >= .adequate {
             hints.append(.readingLocked)
+        }
+
+        // --- Steep angle warning ---
+        // At > 45°, cosine correction reduces displayed range by > 29%.
+        // Operator needs to know the correction is significant.
+        let absPitch = abs(cameraPitchDegrees)
+        if absPitch > 45 {
+            hints.append(.steepAngle)
+
+            // Additional warning when ballistics is enabled at extreme angles.
+            // The simplified Rifleman's Rule becomes unreliable above 60°.
+            if isBallisticsEnabled && absPitch > 60 {
+                hints.append(.ballisticsAngleWarning)
+            }
         }
 
         // --- Calibration hints ---

@@ -94,9 +94,9 @@ struct StabilityBar: View {
 
             // Level label
             Text(level.description)
-                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
                 .foregroundColor(stabilityColor.opacity(0.7))
-                .frame(width: 60, alignment: .trailing)
+                .frame(width: 65, alignment: .trailing)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 4)

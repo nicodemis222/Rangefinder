@@ -7,7 +7,7 @@
 //  Layout — compact single-row top bar + scene range overlay:
 //
 //    ┌──────────────────────────────────────┐
-//    │ [2x] [FAR] [.308] [📏][🗺] [045°+3°] [≡] │  ← single row
+//    │ [FAR] [.308] [📏] [045°+3°] [≡]          │  ← single row
 //    │         ● 124 YDS  ±3              │  ← range readout
 //    │      ◉ STABILIZED  ▓▓▓░            │  ← guidance
 //    │                                      │
@@ -24,15 +24,11 @@ import SwiftUI
 struct RangefinderView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.scenePhase) private var scenePhase
-    @State private var isPinching = false
     @State private var showTerrainSheet = false
 
     var body: some View {
         ZStack {
-            // Layer 1: Camera preview (full bleed, hardware-zoomed)
-            // Zoom is applied directly to the capture device by CameraManager —
-            // real lens switching + ISP digital zoom at native quality.
-            // LiDAR depth maps stay at full wide-angle FOV regardless.
+            // Layer 1: Camera preview (full bleed, fixed 1x main lens)
             CameraPreviewView(
                 cameraManager: appState.cameraManager
             )
@@ -140,7 +136,6 @@ struct RangefinderView: View {
                 }
             }
         }
-        .gesture(pinchGesture)
         .sheet(isPresented: $appState.showSettings) {
             SettingsView(
                 displayUnit: $appState.displayUnit,
@@ -189,12 +184,6 @@ struct RangefinderView: View {
     /// STADIA and MAP collapsed to icon-only toggles.
     private var topBar: some View {
         HStack(spacing: 6) {
-            // Zoom (label-free)
-            MilHUDChip {
-                Text(zoomText)
-                    .font(.system(size: 13, weight: .bold, design: .monospaced))
-            }
-
             // Ballistics (only when enabled)
             if appState.ballisticsSolver.isEnabled {
                 ballisticsChip
@@ -316,16 +305,6 @@ struct RangefinderView: View {
 
     // MARK: - Computed
 
-    private var zoomText: String {
-        if appState.zoomFactor < 1.0 {
-            return String(format: "%.1fx", appState.zoomFactor)
-        } else if appState.zoomFactor == floor(appState.zoomFactor) {
-            return String(format: "%.0fx", appState.zoomFactor)
-        } else {
-            return String(format: "%.1fx", appState.zoomFactor)
-        }
-    }
-
     private var headingText: String {
         let h = appState.headingDegrees
         let cardinal: String
@@ -351,21 +330,6 @@ struct RangefinderView: View {
         return Theme.milRed
     }
 
-    // MARK: - Pinch Gesture
-
-    private var pinchGesture: some Gesture {
-        MagnifyGesture()
-            .onChanged { value in
-                if !isPinching {
-                    isPinching = true
-                    appState.zoomController.handlePinchBegan()
-                }
-                appState.handleZoom(magnification: value.magnification)
-            }
-            .onEnded { _ in
-                isPinching = false
-            }
-    }
 }
 
 // MARK: - MilHUDChip (hard-edge tactical chip)
@@ -396,6 +360,7 @@ struct MilHUDChip<Content: View>: View {
 // MARK: - Range Readout (top HUD zone — fixed position, never overlaps reticle)
 
 /// Primary range display: large number + unit + confidence dot + uncertainty.
+/// Shows correction factor badge and LOS secondary readout at steep angles.
 /// Lives in the top data zone below the chip bar.
 struct CrosshairRangeDisplay: View {
     let range: RangeOutput
@@ -403,32 +368,71 @@ struct CrosshairRangeDisplay: View {
 
     var body: some View {
         if range.isValid {
-            HStack(alignment: .firstTextBaseline, spacing: 0) {
-                // Confidence dot
-                ConfidenceDot(confidence: range.confidence)
-                    .padding(.trailing, 6)
+            VStack(spacing: 2) {
+                // Primary readout row
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    // Confidence dot with text label
+                    ConfidenceDot(confidence: range.confidence)
+                        .padding(.trailing, 6)
 
-                // Main range number
-                Text(formattedRange)
-                    .font(.system(size: 36, weight: .bold, design: .monospaced))
-                    .foregroundColor(Theme.confidenceColor(for: range.confidence))
-                    .contentTransition(.numericText())
-                    .animation(.easeInOut(duration: 0.15), value: formattedRange)
+                    // Main range number
+                    Text(formattedRange)
+                        .font(.system(size: 36, weight: .bold, design: .monospaced))
+                        .foregroundColor(Theme.confidenceColor(for: range.confidence))
+                        .contentTransition(.numericText())
+                        .animation(.easeInOut(duration: 0.15), value: formattedRange)
 
-                // Unit label
-                Text(unitLabel)
-                    .font(.system(size: 14, weight: .medium, design: .monospaced))
-                    .foregroundColor(Theme.milGreenDim)
-                    .padding(.leading, 3)
-                    .padding(.bottom, 1)
-
-                // Uncertainty inline
-                if range.uncertainty.converted(to: .meters).value > 0.5 {
-                    Text("\u{00B1}\(formattedUncertainty)")
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundColor(Theme.milGreenDim.opacity(0.5))
-                        .padding(.leading, 4)
+                    // Unit label
+                    Text(unitLabel)
+                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                        .foregroundColor(Theme.milGreenDim)
+                        .padding(.leading, 3)
                         .padding(.bottom, 1)
+
+                    // Correction factor badge — visible when pitch > 15°
+                    // Shows how much cosine correction is applied (e.g. "×0.26")
+                    if range.inclinationCorrectionFactor < 0.965 {  // ~15°
+                        Text(InclinationCorrector.formatCorrectionFactor(range.inclinationCorrectionFactor))
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .foregroundColor(correctionBadgeColor)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(Theme.panelBackground)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 3)
+                                            .stroke(correctionBadgeColor.opacity(0.4), lineWidth: 1)
+                                    )
+                            )
+                            .padding(.leading, 6)
+                            .padding(.bottom, 1)
+                    }
+
+                    // Uncertainty inline
+                    if range.uncertainty.converted(to: .meters).value > 0.5 {
+                        Text("\u{00B1}\(formattedUncertainty)")
+                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                            .foregroundColor(Theme.milGreenDim.opacity(0.5))
+                            .padding(.leading, 4)
+                            .padding(.bottom, 1)
+                    }
+                }
+
+                // LOS + vertical secondary readout — visible when pitch > 30°
+                // Shows the line-of-sight and vertical distances so operator
+                // can choose the right value for their use case.
+                if abs(range.inclinationDegrees) > 30, range.inclinationCorrectionFactor < 0.865 {
+                    HStack(spacing: 12) {
+                        Text("LOS \(formattedLOS)")
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundColor(Theme.milAmberDim)
+
+                        Text("VERT \(formattedVertical)")
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundColor(Theme.milAmberDim)
+                    }
+                    .shadow(color: .black.opacity(0.5), radius: 2)
                 }
             }
             .shadow(color: .black.opacity(0.7), radius: 3, x: 0, y: 1)
@@ -451,6 +455,29 @@ struct CrosshairRangeDisplay: View {
         }
     }
 
+    private var formattedLOS: String {
+        let value = range.lineOfSightRange.converted(to: displayUnit).value
+        if value < 10 {
+            return String(format: "%.1f", value)
+        } else {
+            return String(format: "%.0f", value)
+        }
+    }
+
+    private var formattedVertical: String {
+        // Vertical component = LOS × sin(angle)
+        let losM = range.lineOfSightRange.converted(to: .meters).value
+        let pitchRad = abs(range.inclinationDegrees) * .pi / 180.0
+        let verticalM = losM * sin(pitchRad)
+        let vertical = Measurement(value: verticalM, unit: UnitLength.meters)
+            .converted(to: displayUnit).value
+        if vertical < 10 {
+            return String(format: "%.1f", vertical)
+        } else {
+            return String(format: "%.0f", vertical)
+        }
+    }
+
     private var formattedUncertainty: String {
         let value = range.uncertainty.converted(to: displayUnit).value
         if value < 1 {
@@ -462,6 +489,14 @@ struct CrosshairRangeDisplay: View {
 
     private var unitLabel: String {
         displayUnit == .yards ? "YDS" : "M"
+    }
+
+    /// Color for the correction factor badge — scales with severity
+    private var correctionBadgeColor: Color {
+        let factor = range.inclinationCorrectionFactor
+        if factor > 0.85 { return Theme.milGreen.opacity(0.7) }    // 15-30°: subtle green
+        if factor > 0.50 { return Theme.milAmber }                  // 30-60°: amber
+        return Theme.milRed                                         // 60°+: red
     }
 }
 
@@ -504,33 +539,43 @@ struct CompactHoldoverView: View {
     }
 }
 
-// MARK: - Confidence Dot (inline, tactical colors)
+// MARK: - Confidence Dot (inline, tactical colors, with text label)
 
 struct ConfidenceDot: View {
     let confidence: Float
     @State private var displayedColor: Color = Theme.confidenceHigh
 
     var body: some View {
-        Circle()
-            .fill(displayedColor)
-            .frame(width: 10, height: 10)
-            .overlay(
-                Circle()
-                    .stroke(displayedColor.opacity(0.4), lineWidth: 2)
-                    .frame(width: 16, height: 16)
-            )
-            .onChange(of: confidence) { _, newValue in
-                withAnimation(.easeInOut(duration: 0.5)) {
-                    displayedColor = Theme.confidenceColor(for: newValue)
-                }
+        HStack(spacing: 3) {
+            Circle()
+                .fill(displayedColor)
+                .frame(width: 14, height: 14)
+                .overlay(
+                    Circle()
+                        .stroke(displayedColor.opacity(0.7), lineWidth: 2)
+                        .frame(width: 20, height: 20)
+                )
+
+            Text(confidenceLabel)
+                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                .foregroundColor(displayedColor.opacity(0.7))
+        }
+        .onChange(of: confidence) { _, newValue in
+            withAnimation(.easeInOut(duration: 0.5)) {
+                displayedColor = Theme.confidenceColor(for: newValue)
             }
-            .onAppear {
-                displayedColor = Theme.confidenceColor(for: confidence)
-            }
+        }
+        .onAppear {
+            displayedColor = Theme.confidenceColor(for: confidence)
+        }
+    }
+
+    private var confidenceLabel: String {
+        if confidence >= 0.7 { return "HI" }
+        if confidence >= 0.4 { return "MED" }
+        return "LO"
     }
 }
-
-// (PinchZoomHint removed — zoom is discoverable via MAG chip in top bar)
 
 // MARK: - Loading Overlay (tactical "INITIALIZING")
 

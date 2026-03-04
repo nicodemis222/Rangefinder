@@ -2,7 +2,8 @@
 //  ZoomController.swift
 //  Rangefinder
 //
-//  Manages pinch-to-zoom and lens switching for iPhone 17 Pro Max.
+//  DEPRECATED — Zoom removed. Camera locked at 1x main lens for maximum
+//  ranging confidence across all depth sources. Retained for reference only.
 //
 
 import Foundation

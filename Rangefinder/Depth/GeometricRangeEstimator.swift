@@ -41,6 +41,14 @@ struct GeometricRangeEstimator {
     /// Below this angle, IMU noise dominates the estimate.
     private let minPitchBelowHorizontalDeg: Float = 0.3
 
+    /// Maximum downward pitch for valid geometric estimate (degrees).
+    /// Beyond 45°, the flat-ground assumption is universally invalid:
+    /// steep pitch indicates a slope, elevated position, or near-vertical
+    /// aiming scenario where D = h/tan(θ) is meaningless regardless of
+    /// camera height. Only LiDAR, neural, DEM, or object detection can
+    /// provide useful estimates at steep angles.
+    private let maxPitchBelowHorizontalDeg: Float = 45.0
+
     /// Maximum valid geometric range (meters). Beyond this, IMU error dominates.
     private let maxGeometricRange: Float = 800.0
 
@@ -60,9 +68,10 @@ struct GeometricRangeEstimator {
         // pitchBelowHorizontal is the angle below the horizon (positive when looking down)
         let pitchBelowHorizontal = -pitchRadians  // positive when camera tilts down
 
-        // Reject if looking up or too close to level
+        // Reject if looking up, too close to level, or too steep
         let pitchBelowHorizontalDeg = Float(pitchBelowHorizontal * 180.0 / .pi)
-        guard pitchBelowHorizontalDeg > minPitchBelowHorizontalDeg else {
+        guard pitchBelowHorizontalDeg > minPitchBelowHorizontalDeg,
+              pitchBelowHorizontalDeg < maxPitchBelowHorizontalDeg else {
             return nil
         }
 

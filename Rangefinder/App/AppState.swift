@@ -15,7 +15,6 @@ class AppState: ObservableObject {
     // MARK: - Published State
 
     @Published var currentRange: RangeOutput = .none
-    @Published var zoomFactor: CGFloat = 1.0
     @Published var pitchDegrees: Double = 0.0
     @Published var headingDegrees: Double = 0.0
     @Published var isSessionRunning = false
@@ -69,7 +68,6 @@ class AppState: ObservableObject {
     // MARK: - Managers
 
     let cameraManager = CameraManager()
-    let zoomController = ZoomController()
     let inclinationManager = InclinationManager()
     let performanceMonitor = PerformanceMonitor()
     let ballisticsSolver = BallisticsSolver()
@@ -91,7 +89,6 @@ class AppState: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var frameProcessingTask: Task<Void, Never>?
     private var hasStartedSession = false
-    private var previousLens: CameraLens = .main
 
     // MARK: - Initialization
 
@@ -111,10 +108,6 @@ class AppState: ObservableObject {
     }
 
     private func setupBindings() {
-        // Forward zoom changes
-        zoomController.$zoomFactor
-            .assign(to: &$zoomFactor)
-
         // Forward camera session state
         cameraManager.$isSessionRunning
             .assign(to: &$isSessionRunning)
@@ -165,20 +158,6 @@ class AppState: ObservableObject {
                 self?.depthField.latestDEMEstimate?.hitCoordinate
             }
             .assign(to: &$demHitCoordinate)
-
-        // Haptic feedback on lens breakpoint crossings
-        zoomController.$activeLens
-            .removeDuplicates()
-            .dropFirst()
-            .sink { [weak self] newLens in
-                guard let self = self else { return }
-                if newLens != self.previousLens {
-                    let generator = UIImpactFeedbackGenerator(style: .medium)
-                    generator.impactOccurred()
-                    self.previousLens = newLens
-                }
-            }
-            .store(in: &cancellables)
 
         // Process camera frames through the full pipeline
         cameraManager.frameSubject
@@ -269,6 +248,7 @@ class AppState: ObservableObject {
         guidanceEngine.isDEMFarField = (depthField.latestDEMEstimate?.distanceMeters ?? 0) > 200
         guidanceEngine.isLSTMode = true
         guidanceEngine.cameraPitchDegrees = pitchDegrees
+        guidanceEngine.isBallisticsEnabled = ballisticsSolver.isEnabled
     }
 
     // MARK: - Lifecycle
@@ -350,15 +330,4 @@ class AppState: ObservableObject {
         )
     }
 
-    // MARK: - Zoom
-
-    func handleZoom(magnification: CGFloat) {
-        zoomController.handlePinchChanged(scale: magnification)
-        cameraManager.setZoomFactor(zoomController.zoomFactor)
-    }
-
-    func snapToLens(_ lens: CameraLens) {
-        zoomController.snapToLens(lens)
-        cameraManager.setZoomFactor(zoomController.zoomFactor)
-    }
 }
