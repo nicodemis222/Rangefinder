@@ -12,7 +12,6 @@ struct SettingsView: View {
     @Binding var displayUnit: UnitLength
     @Binding var reticleConfig: ReticleConfiguration
     @Binding var cameraHeight: Float
-    @Binding var targetPriority: TargetPriority
     @Binding var stadiametricTargetSize: Double
     @ObservedObject var ballisticsSolver: BallisticsSolver
     @ObservedObject var locationManager: LocationManager
@@ -37,27 +36,6 @@ struct SettingsView: View {
                     Text("DISPLAY UNITS")
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                         .tracking(1)
-                }
-
-                // Target Priority (Near/Far target mode)
-                Section {
-                    HStack(spacing: 12) {
-                        Button("NEAR (1ST)") { targetPriority = .near }
-                            .buttonStyle(MilToggleButton(isSelected: targetPriority == .near))
-                        Button("FAR (LST)") { targetPriority = .far }
-                            .buttonStyle(MilToggleButton(isSelected: targetPriority == .far))
-                        Spacer()
-                    }
-                } header: {
-                    Text("TARGET MODE")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .tracking(1)
-                } footer: {
-                    Text(targetPriority == .far
-                        ? "LAST TARGET — ranges through foreground occluders (rocks, brush) to the distant terrain. Uses DEM cross-validation."
-                        : "FIRST TARGET — ranges the closest object at the crosshair. Use for close targets with no occluders.")
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundColor(Theme.milGreenDim)
                 }
 
                 // Ballistics

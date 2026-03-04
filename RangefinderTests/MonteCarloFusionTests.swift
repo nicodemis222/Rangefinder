@@ -938,11 +938,11 @@ final class MonteCarloFusionTests: XCTestCase {
             d += step
         }
 
-        // Neural: check within active range (2-149.5m), skip the hard cap at 150m.
-        // Beyond 150m neural returns 0.0 (intentional hard cap, not a continuity bug).
+        // Neural: check within active range (2-49.5m), skip the hard cap at 50m.
+        // Beyond 50m neural returns 0.0 (intentional hard cap, not a continuity bug).
         var prevNeural = DepthSourceConfidence.neural(distanceM: 2.0)
         d = 2.1
-        while d <= 149.5 {
+        while d <= 49.5 {
             let cur = DepthSourceConfidence.neural(distanceM: d)
             let jump = abs(cur - prevNeural)
             XCTAssertLessThan(jump, 0.06,
@@ -1238,10 +1238,15 @@ final class MonteCarloFusionTests: XCTestCase {
     // MARK: - Neural Extrapolation Penalty Validation
 
     func testExtrapolationPenaltyReducesLongRangeOverconfidence() {
-        // At 100m actual, neural typically reads ~45m.
-        // Without penalty: neural weight = neural(45m) * calQ = 0.62 * 0.85 = 0.53
-        // With penalty: 0.53 * penalty(45m) where penalty = 0.85-(45-30)/166.7 = 0.76
-        //   → 0.53 * 0.76 = 0.40
+        // At 100m actual, neural typically reads ~45m (inverse-depth compression).
+        // With the aggressive extrapolation curve (hard cap at 50m):
+        // neural(45m) = 0.15 - (45-40)*0.007 = 0.115
+        // calQ = 0.85 (fresh calibration)
+        // penalty = 0.85 - (45-30)/166.7 = 0.76
+        // withPenalty = 0.115 * 0.85 * 0.76 = 0.074
+        //
+        // This very low weight ensures neural doesn't dominate when DEM
+        // should be the primary source.
 
         let neuralReportedD: Float = 45.0
         let distW = DepthSourceConfidence.neural(distanceM: neuralReportedD)
@@ -1253,10 +1258,10 @@ final class MonteCarloFusionTests: XCTestCase {
 
         XCTAssertLessThan(withPenalty, withoutPenalty,
             "Extrapolation penalty should reduce weight")
-        XCTAssertLessThan(withPenalty, 0.5,
-            "At 45m reported, penalized weight should be < 0.5")
-        XCTAssertGreaterThan(withPenalty, 0.2,
-            "At 45m reported, penalized weight should still be > 0.2")
+        XCTAssertLessThan(withPenalty, 0.15,
+            "At 45m reported, penalized weight should be very low (< 0.15)")
+        XCTAssertGreaterThan(withPenalty, 0.01,
+            "At 45m reported, penalized weight should still be slightly positive")
     }
 
     // MARK: - Edge Case: All Sources Available

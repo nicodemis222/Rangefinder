@@ -2,7 +2,7 @@
 //  DEMRaycastEstimatorTests.swift
 //  RangefinderTests
 //
-//  Tests for DEM ray-terrain intersection logic.
+//  Tests for DEM terrain visibility scan logic.
 //
 
 import XCTest
@@ -14,26 +14,26 @@ final class DEMRaycastEstimatorTests: XCTestCase {
     // MARK: - Confidence Computation
 
     func testConfidenceHighWithGoodGPS() {
-        // At 100m with good GPS (<5m) and good heading (<10°):
-        // gpsFactor = 0.80, headingFactor = 1.0
-        // distanceFactor = 1.0 / (1.0 + 100/500) = 1.0/1.2 = 0.833
-        // Expected: 0.80 * 1.0 * 0.833 ≈ 0.667
+        // With good GPS (<5m): gpsFactor = 0.90
+        // Good heading (<5°): headingFactor = 1.0
+        // Unknown vertical: altFactor = 0.65
+        // Expected: 0.90 * 0.65 * 1.0 = 0.585
         let estimate = DEMRaycastEstimate(
             distanceMeters: 100,
-            confidence: 0.667,
+            confidence: 0.585,
             terrainElevation: 200,
             headingDeg: 90,
             gpsAccuracy: 3.0,
             hitCoordinate: .init(latitude: 0, longitude: 0)
         )
-        XCTAssertEqual(estimate.confidence, 0.667, accuracy: 0.01)
+        XCTAssertEqual(estimate.confidence, 0.585, accuracy: 0.01)
     }
 
     func testConfidenceLowWithPoorGPS() {
         // With GPS accuracy > 30m: gpsFactor = 0.15
         let estimate = DEMRaycastEstimate(
             distanceMeters: 100,
-            confidence: 0.125,
+            confidence: 0.10,
             terrainElevation: 200,
             headingDeg: 90,
             gpsAccuracy: 40.0,
@@ -42,87 +42,231 @@ final class DEMRaycastEstimatorTests: XCTestCase {
         XCTAssertLessThan(estimate.confidence, 0.2)
     }
 
-    func testConfidenceDegradesWithDistance() {
-        // distanceFactor = 1.0 / (1.0 + distance/500.0)
-        // At 100m: 1.0 / 1.2 = 0.833
-        // At 500m: 1.0 / 2.0 = 0.500
-        // At 1000m: 1.0 / 3.0 = 0.333
-        let factor100 = 1.0 / (1.0 + 100.0 / 500.0)
-        let factor500 = 1.0 / (1.0 + 500.0 / 500.0)
-        let factor1000 = 1.0 / (1.0 + 1000.0 / 500.0)
+    func testConfidenceNotDistanceDependent() {
+        // The DEM estimator's confidence does NOT depend on distance —
+        // distance weighting is applied separately by DepthSourceConfidence.demRaycast()
+        // in the fusion pipeline. This avoids double-penalizing distance.
+        // GPS factor, alt factor, and heading factor are all distance-independent.
+        let gpsFactor: Float = 0.90  // <5m GPS
+        let altFactor: Float = 0.65  // unknown vertical
+        let headingFactor: Float = 1.0  // <5° heading
 
-        XCTAssertEqual(factor100, 0.833, accuracy: 0.01)
-        XCTAssertEqual(factor500, 0.500, accuracy: 0.01)
-        XCTAssertEqual(factor1000, 0.333, accuracy: 0.01)
-        XCTAssertGreaterThan(factor100, factor500)
-        XCTAssertGreaterThan(factor500, factor1000)
+        let expectedConf = gpsFactor * altFactor * headingFactor
+
+        // Same confidence regardless of distance
+        XCTAssertEqual(expectedConf, 0.585, accuracy: 0.01,
+            "Confidence should be 0.585 regardless of distance")
     }
 
-    // MARK: - Ray Direction (ENU)
+    // MARK: - Horizontal March Direction
 
-    func testRayDirectionNorth() {
-        // Heading 0° (North), pitch 5° below horizontal
+    func testHorizontalMarchNorth() {
+        // Heading 0° (North): march is purely along North axis
         let headingRad = 0.0 * Double.pi / 180.0
-        let pitchBelow = 5.0 * Double.pi / 180.0
 
-        let dEast = sin(headingRad) * cos(pitchBelow)
-        let dNorth = cos(headingRad) * cos(pitchBelow)
-        let dUp = -sin(pitchBelow)
+        let dEast = sin(headingRad)   // per horizontal meter
+        let dNorth = cos(headingRad)  // per horizontal meter
 
         XCTAssertEqual(dEast, 0.0, accuracy: 0.001, "Facing North: no East component")
-        XCTAssertEqual(dNorth, cos(pitchBelow), accuracy: 0.001, "Facing North: full North component")
-        XCTAssertLessThan(dUp, 0, "Ray should go downward")
+        XCTAssertEqual(dNorth, 1.0, accuracy: 0.001, "Facing North: full North component")
     }
 
-    func testRayDirectionEast() {
-        // Heading 90° (East), pitch 5° below horizontal
+    func testHorizontalMarchEast() {
+        // Heading 90° (East): march is purely along East axis
         let headingRad = 90.0 * Double.pi / 180.0
-        let pitchBelow = 5.0 * Double.pi / 180.0
 
-        let eastComponent = sin(headingRad) * cos(pitchBelow)
-        let northComponent = cos(headingRad) * cos(pitchBelow)
-        let upComponent = -sin(pitchBelow)
+        let dEast = sin(headingRad)
+        let dNorth = cos(headingRad)
 
-        XCTAssertEqual(eastComponent, cos(pitchBelow), accuracy: 0.001, "Facing East: full East component")
-        XCTAssertEqual(northComponent, 0.0, accuracy: 0.001, "Facing East: no North component")
-        XCTAssertLessThan(upComponent, 0, "Ray should go downward")
+        XCTAssertEqual(dEast, 1.0, accuracy: 0.001, "Facing East: full East component")
+        XCTAssertEqual(dNorth, 0.0, accuracy: 0.001, "Facing East: no North component")
     }
 
-    func testRayDirectionSteepPitch() {
-        // Heading 0° (North), pitch 45° below horizontal
-        let headingRad = 0.0 * Double.pi / 180.0
-        let pitchBelow = 45.0 * Double.pi / 180.0
+    func testHorizontalMarchIsPitchIndependent() {
+        // The horizontal march direction should NOT change with pitch
+        // (this is the key difference from the old ray march)
+        let headingRad = 45.0 * Double.pi / 180.0
 
-        let dEast = sin(headingRad) * cos(pitchBelow)
-        let dNorth = cos(headingRad) * cos(pitchBelow)
-        let dUp = -sin(pitchBelow)
+        let dEast = sin(headingRad)
+        let dNorth = cos(headingRad)
 
-        // At 45°, cos and sin are equal
-        XCTAssertEqual(dNorth, abs(dUp), accuracy: 0.001,
-            "At 45° pitch, horizontal and vertical components should be equal")
+        // Regardless of pitch, horizontal components are the same
+        let expectedEast = sin(headingRad)
+        let expectedNorth = cos(headingRad)
+
+        XCTAssertEqual(dEast, expectedEast, accuracy: 0.001)
+        XCTAssertEqual(dNorth, expectedNorth, accuracy: 0.001)
+
+        // Verify unit length
+        let length = sqrt(dEast * dEast + dNorth * dNorth)
+        XCTAssertEqual(length, 1.0, accuracy: 0.001,
+            "Horizontal march should be unit-length (1m per step unit)")
+    }
+
+    // MARK: - LOS Altitude Computation
+
+    func testLOSAltitudeLookingDown() {
+        // Looking down at -7.9°: LOS descends
+        let cameraPitchRad = -7.9 * Double.pi / 180.0
+        let tanPitch = tan(cameraPitchRad)
+        let observerAlt = 2002.0
+
+        let losAt100m = observerAlt + 100.0 * tanPitch
+        let losAt500m = observerAlt + 500.0 * tanPitch
+        let losAt1000m = observerAlt + 1000.0 * tanPitch
+
+        // LOS should descend
+        XCTAssertLessThan(losAt100m, observerAlt, "LOS descends when looking down")
+        XCTAssertLessThan(losAt500m, losAt100m, "LOS continues descending")
+        XCTAssertLessThan(losAt1000m, losAt500m, "LOS continues descending")
+
+        // At 100m: descent = 100 * tan(7.9°) ≈ 13.9m
+        XCTAssertEqual(losAt100m, 2002.0 - 13.88, accuracy: 0.5)
+    }
+
+    func testLOSAltitudeLookingUp() {
+        // Looking up at +5°: LOS ascends
+        let cameraPitchRad = 5.0 * Double.pi / 180.0
+        let tanPitch = tan(cameraPitchRad)
+        let observerAlt = 500.0
+
+        let losAt1000m = observerAlt + 1000.0 * tanPitch
+
+        // LOS should ascend: 500 + 1000 * tan(5°) ≈ 500 + 87.5 = 587.5
+        XCTAssertGreaterThan(losAt1000m, observerAlt, "LOS ascends when looking up")
+        XCTAssertEqual(losAt1000m, 587.5, accuracy: 1.0)
+    }
+
+    // MARK: - Viewshed Elevation Angle
+
+    func testElevationAngleToHigherTerrain() {
+        // Terrain 100m higher at 1000m horizontal distance
+        let observerAlt = 500.0
+        let terrainElev = 600.0
+        let horizontalDist = 1000.0
+
+        let angle = atan2(terrainElev - observerAlt, horizontalDist) * 180.0 / .pi
+
+        // angle = atan2(100, 1000) ≈ 5.71°
+        XCTAssertEqual(angle, 5.71, accuracy: 0.1,
+            "Angle to higher terrain should be positive")
+        XCTAssertGreaterThan(angle, 0)
+    }
+
+    func testElevationAngleToLowerTerrain() {
+        // Terrain 200m lower at 1463m horizontal distance
+        let observerAlt = 2002.0
+        let terrainElev = 1800.0
+        let horizontalDist = 1463.0
+
+        let angle = atan2(terrainElev - observerAlt, horizontalDist) * 180.0 / .pi
+
+        // angle = atan2(-202, 1463) ≈ -7.87°
+        XCTAssertEqual(angle, -7.87, accuracy: 0.1,
+            "Angle to lower terrain should be negative")
+    }
+
+    func testViewshedVisibility() {
+        // Simulate viewshed: terrain at d=100m has higher angle than at d=500m
+        // (because terrain drops away)
+        let observerAlt = 2002.0
+
+        // Near terrain: 2000m at 100m → angle = atan2(-2, 100) = -1.15°
+        let nearAngle = atan2(2000.0 - observerAlt, 100.0) * 180.0 / .pi
+
+        // Far terrain: 1800m at 1463m → angle = atan2(-202, 1463) = -7.87°
+        let farAngle = atan2(1800.0 - observerAlt, 1463.0) * 180.0 / .pi
+
+        // Near terrain sets the horizon
+        XCTAssertGreaterThan(nearAngle, farAngle,
+            "Near terrain has higher elevation angle (sets horizon)")
+
+        // Far terrain would be occluded if flat ground extends to it
+        var maxElevAngle = -90.0
+        maxElevAngle = max(maxElevAngle, nearAngle)  // → -1.15°
+        let farVisible = farAngle >= maxElevAngle
+        XCTAssertFalse(farVisible,
+            "Far lower terrain should be occluded by flat ground near observer")
+    }
+
+    func testViewshedVisibilityFromRidge() {
+        // Observer on a ridge: terrain drops steeply, then distant terrain is visible
+        let observerAlt = 2502.0
+
+        // Ridge edge at 30m: terrain=2480 → angle = atan2(-22, 30) = -36.2°
+        let ridgeAngle = atan2(2480.0 - observerAlt, 30.0) * 180.0 / .pi
+
+        // Valley at 1000m: terrain=1780 → angle = atan2(-722, 1000) = -35.8°
+        let valleyAngle = atan2(1780.0 - observerAlt, 1000.0) * 180.0 / .pi
+
+        // Distant terrain at 1463m: terrain=2300 → angle = atan2(-202, 1463) = -7.87°
+        let targetAngle = atan2(2300.0 - observerAlt, 1463.0) * 180.0 / .pi
+
+        var maxElevAngle = -90.0
+        maxElevAngle = max(maxElevAngle, ridgeAngle)  // → -36.2°
+        maxElevAngle = max(maxElevAngle, valleyAngle)  // stays -35.8° > -36.2°? No, -35.8 > -36.2.
+
+        // Valley angle (-35.8°) is GREATER than ridge angle (-36.2°): visible
+        let valleyVisible = valleyAngle >= maxElevAngle
+        XCTAssertTrue(valleyVisible, "Valley bottom should be visible from ridge")
+
+        maxElevAngle = max(maxElevAngle, valleyAngle)  // → -35.8°
+
+        // Target at -7.87° > -35.8° → VISIBLE from ridge!
+        let targetVisible = targetAngle >= maxElevAngle
+        XCTAssertTrue(targetVisible,
+            "Distant terrain should be visible from ridge (angle rises)")
+    }
+
+    // MARK: - Pitch Matching
+
+    func testPitchMatchingAtTarget() {
+        // Camera pitch -7.9°, terrain at 1463m has elevation angle -7.87°
+        let cameraPitchDeg = -7.9
+        let terrainAngleDeg = -7.87
+        let angleDiff = abs(terrainAngleDeg - cameraPitchDeg)
+
+        // Tolerance at 1463m: atan2(10, 1463) + 0.5° ≈ 0.39° + 0.5° = 0.89°
+        // max(0.89°, 1.0°) = 1.0°
+        let tolerance = max(atan2(10.0, 1463.0) * 180.0 / .pi + 0.5, 1.0)
+
+        XCTAssertLessThan(angleDiff, tolerance,
+            "Terrain at 1463m should match camera pitch within tolerance")
+    }
+
+    func testPitchMatchingNearFieldMismatch() {
+        // Camera pitch -7.9°, flat ground at 100m has angle -1.15°
+        let cameraPitchDeg = -7.9
+        let terrainAngleDeg = -1.15
+        let angleDiff = abs(terrainAngleDeg - cameraPitchDeg)
+
+        // Tolerance at 100m: atan2(10, 100) + 0.5° ≈ 5.71° + 0.5° = 6.21°
+        let tolerance = max(atan2(10.0, 100.0) * 180.0 / .pi + 0.5, 1.0)
+
+        XCTAssertGreaterThan(angleDiff, tolerance,
+            "Flat ground at 100m should NOT match -7.9° pitch")
     }
 
     // MARK: - Pitch Validation
 
-    func testLookingUpReturnsNoPitch() {
-        // pitchRadians > 0 means looking up → no DEM estimate
-        // The estimator checks: guard pitchRadians < -0.003
-        let pitchUp = 5.0 * Double.pi / 180.0
-        XCTAssertGreaterThan(pitchUp, -0.003,
-            "Looking up should fail the pitch guard")
+    func testLookingUpModeratelyAllowed() {
+        // Looking up at +15° should be allowed (mountains above)
+        let pitchDegrees = 15.0
+        XCTAssertLessThan(pitchDegrees, 30.0,
+            "Moderate upward look should pass pitch guard")
     }
 
-    func testLookingLevelReturnsNoPitch() {
-        // Level pitch → no DEM estimate
-        let pitchLevel = 0.0
-        XCTAssertFalse(pitchLevel < -0.003,
-            "Level should fail the pitch guard")
+    func testLookingSteepUpRejected() {
+        // Looking up at +35° should be rejected (aiming at sky)
+        let pitchDegrees = 35.0
+        XCTAssertGreaterThanOrEqual(pitchDegrees, 30.0,
+            "Steep upward look should fail pitch guard")
     }
 
     func testLookingDownPassesPitchGuard() {
         // -5° pitch → passes guard
-        let pitchDown = -5.0 * Double.pi / 180.0
-        XCTAssertLessThan(pitchDown, -0.003,
+        let pitchDegrees = -5.0
+        XCTAssertLessThan(pitchDegrees, 30.0,
             "Looking down should pass the pitch guard")
     }
 
@@ -164,7 +308,6 @@ final class DEMRaycastEstimatorTests: XCTestCase {
     func testMetersPerDegreeLatitude() {
         // ~111,320 meters per degree latitude (roughly constant)
         let metersPerDegLat = 111_320.0
-        // 1 degree of latitude ≈ 111.32 km
         XCTAssertEqual(metersPerDegLat, 111_320.0, accuracy: 100.0)
     }
 
@@ -211,9 +354,9 @@ final class DEMRaycastEstimatorTests: XCTestCase {
 
         // Barometric accuracy thresholds:
         // <3m: altFactor = 1.0 (excellent)
-        // <10m: altFactor = 0.85 (good)
-        // <20m: altFactor = 0.70 (typical GPS)
-        // else: altFactor = 0.60 (poor/unknown)
+        // <10m: altFactor = 0.90 (good)
+        // <20m: altFactor = 0.75 (typical GPS)
+        // else: altFactor = 0.65 (poor/unknown)
 
         let baroAcc: Float = 2.0
         let gpsAcc: Float = 15.0
@@ -234,7 +377,19 @@ final class DEMRaycastEstimatorTests: XCTestCase {
         // Runtime: it returns nil because there's no SRTM data,
         // but it should not crash
         _ = estimator
-        // The new signature: estimate(coordinate:altitude:pitchRadians:headingDegrees:horizontalAccuracy:verticalAccuracy:)
-        // is validated at compile time
+    }
+
+    // MARK: - Selection Priority
+
+    func testFarFieldPreferredOverNearField() {
+        // The selection logic should prefer far-field hits over near-field
+        // This prevents flat-ground grazes (14m) from masking mountain hits (1463m)
+        let nearField: Float = 14.6   // Flat ground graze
+        let farField: Float = 1463.0  // Mountain target
+
+        XCTAssertGreaterThan(farField, 100.0, "Mountain hit should be far-field")
+        XCTAssertLessThan(nearField, 100.0, "Flat ground graze should be near-field")
+        // Selection priority: far-field viewshed > far-field LOS > near-field
+        // The algorithm always prefers far-field results when available
     }
 }

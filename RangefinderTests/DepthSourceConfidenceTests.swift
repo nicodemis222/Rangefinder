@@ -57,17 +57,17 @@ final class DepthSourceConfidenceTests: XCTestCase {
     }
 
     func testNeuralDecaysBeyond15m() {
-        // Neural now decays faster beyond 15m (steepened for DEM handover)
+        // Neural now decays aggressively beyond 15m (extrapolation zone)
         let at15 = DepthSourceConfidence.neural(distanceM: 15.0)
         let at25 = DepthSourceConfidence.neural(distanceM: 25.0)
         let at40 = DepthSourceConfidence.neural(distanceM: 40.0)
         XCTAssertEqual(at15, 0.9, accuracy: 0.01)
         XCTAssertLessThan(at25, at15, "Neural should decay beyond 15m")
         XCTAssertLessThan(at40, at25, "Neural should continue decaying")
-        // at25: 0.90 - (25-15)*0.02 = 0.70
-        XCTAssertEqual(at25, 0.70, accuracy: 0.02)
-        // at40: enters 25-40 bracket: 0.70 - (40-25)*0.0167 = 0.70 - 0.25 = 0.45
-        XCTAssertEqual(at40, 0.45, accuracy: 0.02)
+        // at25: in 20-30 bracket: 0.55 - (25-20)*0.025 = 0.425
+        XCTAssertEqual(at25, 0.425, accuracy: 0.02)
+        // at40: in 30-40 bracket: 0.30 - (40-30)*0.015 = 0.15
+        XCTAssertEqual(at40, 0.15, accuracy: 0.02)
     }
 
     func testNeuralStrongAtHandover() {
@@ -81,29 +81,29 @@ final class DepthSourceConfidenceTests: XCTestCase {
         XCTAssertEqual(at1, 0.3, accuracy: 0.01)
     }
 
-    func testNeuralHardCapAt150m() {
-        // Neural hard cap: returns 0.0 at and beyond 150m (neuralHardCapMeters)
-        let at140 = DepthSourceConfidence.neural(distanceM: 140.0)
-        let at149 = DepthSourceConfidence.neural(distanceM: 149.0)
-        let at150 = DepthSourceConfidence.neural(distanceM: 150.0)
-        let at151 = DepthSourceConfidence.neural(distanceM: 151.0)
+    func testNeuralHardCapAt50m() {
+        // Neural hard cap: returns 0.0 at and beyond 50m (neuralHardCapMeters)
+        let at45 = DepthSourceConfidence.neural(distanceM: 45.0)
+        let at49 = DepthSourceConfidence.neural(distanceM: 49.0)
+        let at50 = DepthSourceConfidence.neural(distanceM: 50.0)
+        let at51 = DepthSourceConfidence.neural(distanceM: 51.0)
 
-        // At 140m: in 120-150 bracket: 0.15 - (140-120)*0.00233 ≈ 0.103
-        XCTAssertGreaterThan(at140, 0.08, "Neural at 140m should still be positive")
-        // At 149m: near the cap, very low but positive
-        XCTAssertGreaterThan(at149, 0.05, "Just under 150m should still be positive")
-        // At exactly 150m: falls through < 150 bracket, hits return 0.0
-        XCTAssertEqual(at150, 0.0, accuracy: 0.001,
-            "Neural should be zero at exactly 150m (boundary)")
+        // At 45m: in 40-50 bracket: 0.15 - (45-40)*0.007 = 0.115
+        XCTAssertGreaterThan(at45, 0.08, "Neural at 45m should still be positive")
+        // At 49m: near the cap, very low but positive
+        XCTAssertGreaterThan(at49, 0.05, "Just under 50m should still be positive")
+        // At exactly 50m: falls through < 50 bracket, hits return 0.0
+        XCTAssertEqual(at50, 0.0, accuracy: 0.001,
+            "Neural should be zero at exactly 50m (boundary)")
         // Beyond cap: hard zero
-        XCTAssertEqual(at151, 0.0, accuracy: 0.001,
-            "Neural should be exactly 0 beyond the 150m hard cap")
+        XCTAssertEqual(at51, 0.0, accuracy: 0.001,
+            "Neural should be exactly 0 beyond the 50m hard cap")
     }
 
     func testNeuralZeroBeyondHardCap() {
-        // All readings beyond 150m should be zero
+        // All readings beyond 50m should be zero
+        XCTAssertEqual(DepthSourceConfidence.neural(distanceM: 60.0), 0.0, accuracy: 0.001)
         XCTAssertEqual(DepthSourceConfidence.neural(distanceM: 200.0), 0.0, accuracy: 0.001)
-        XCTAssertEqual(DepthSourceConfidence.neural(distanceM: 500.0), 0.0, accuracy: 0.001)
         XCTAssertEqual(DepthSourceConfidence.neural(distanceM: 1000.0), 0.0, accuracy: 0.001)
     }
 
@@ -170,25 +170,25 @@ final class DepthSourceConfidenceTests: XCTestCase {
     // MARK: - Neural + DEM Overlap
 
     func testNeuralDEMOverlap() {
-        // At 30-100m, both neural and DEM should have non-zero confidence
-        // Neural now extends to 150m with declining weight
-        let neural40 = DepthSourceConfidence.neural(distanceM: 40.0)
-        let dem40 = DepthSourceConfidence.demRaycast(distanceM: 40.0, gpsAccuracy: 5.0, headingAccuracy: 5.0)
+        // At 30-50m, both neural and DEM should have non-zero confidence
+        // Neural hard cap is now 50m — aggressive extrapolation penalty
+        let neural35 = DepthSourceConfidence.neural(distanceM: 35.0)
+        let dem35 = DepthSourceConfidence.demRaycast(distanceM: 35.0, gpsAccuracy: 5.0, headingAccuracy: 5.0)
 
-        // Neural at 40m: in 25-40 bracket: 0.70 - (40-25)*0.0167 = 0.45
-        XCTAssertEqual(neural40, 0.45, accuracy: 0.02, "Neural should still be active at 40m")
-        XCTAssertGreaterThan(dem40, 0.2, "DEM should be active at 40m")
+        // Neural at 35m: in 30-40 bracket: 0.30 - (35-30)*0.015 = 0.225
+        XCTAssertEqual(neural35, 0.225, accuracy: 0.02, "Neural should be weak at 35m (extrapolation)")
+        XCTAssertGreaterThan(dem35, 0.2, "DEM should be active at 35m")
 
-        // At 60m, neural is fading but still present; DEM is rising
+        // At 45m, neural is very low; DEM is strong
+        let neural45 = DepthSourceConfidence.neural(distanceM: 45.0)
+        let dem45 = DepthSourceConfidence.demRaycast(distanceM: 45.0, gpsAccuracy: 5.0, headingAccuracy: 5.0)
+        // Neural at 45m: in 40-50 bracket: 0.15 - (45-40)*0.007 = 0.115
+        XCTAssertEqual(neural45, 0.115, accuracy: 0.02, "Neural should be very low at 45m")
+        XCTAssertGreaterThan(dem45, 0.3, "DEM should be stronger than neural at 45m")
+
+        // Beyond 50m, neural is zero and DEM takes over completely
         let neural60 = DepthSourceConfidence.neural(distanceM: 60.0)
-        let dem60 = DepthSourceConfidence.demRaycast(distanceM: 60.0, gpsAccuracy: 5.0, headingAccuracy: 5.0)
-        // Neural at 60m: in 50-80 bracket: 0.35 - (60-50)*0.00333 ≈ 0.317
-        XCTAssertGreaterThan(neural60, 0.25, "Neural should still be active at 60m (extended curve)")
-        XCTAssertGreaterThan(dem60, 0.4, "DEM should be strong at 60m")
-
-        // Beyond 150m, neural is zero and DEM takes over completely
-        let neural160 = DepthSourceConfidence.neural(distanceM: 160.0)
-        XCTAssertEqual(neural160, 0.0, accuracy: 0.001, "Neural should be zero beyond 150m hard cap")
+        XCTAssertEqual(neural60, 0.0, accuracy: 0.001, "Neural should be zero beyond 50m hard cap")
     }
 
     // MARK: - Geometric Confidence
@@ -229,12 +229,19 @@ final class DepthSourceConfidenceTests: XCTestCase {
     }
 
     func testNeuralGeometricOverlap() {
-        // At 30m, both neural and geometric should have non-zero confidence
-        let neural = DepthSourceConfidence.neural(distanceM: 30.0)
-        let geometric = DepthSourceConfidence.geometric(distanceM: 30.0)
+        // At 20m, both neural and geometric should have non-zero confidence
+        // (neural drops faster now at 30m, so test overlap at 20m)
+        let neural = DepthSourceConfidence.neural(distanceM: 20.0)
+        let geometric = DepthSourceConfidence.geometric(distanceM: 20.0)
 
-        XCTAssertGreaterThan(neural, 0.5, "Neural should be strong at 30m")
-        XCTAssertGreaterThan(geometric, 0.5, "Geometric should be strong at 30m")
+        XCTAssertGreaterThan(neural, 0.4, "Neural should be moderate at 20m")
+        XCTAssertGreaterThan(geometric, 0.5, "Geometric should be strong at 20m")
+
+        // At 30m, neural is fading but still non-zero
+        let neural30 = DepthSourceConfidence.neural(distanceM: 30.0)
+        let geo30 = DepthSourceConfidence.geometric(distanceM: 30.0)
+        XCTAssertGreaterThan(neural30, 0.1, "Neural should still be non-zero at 30m")
+        XCTAssertGreaterThan(geo30, 0.5, "Geometric should be strong at 30m")
     }
 
     // MARK: - Calibration Quality
@@ -319,34 +326,25 @@ final class DepthSourceConfidenceTests: XCTestCase {
 
     // MARK: - Neural Effective Weight (curve × extrapolation penalty)
 
-    func testNeuralEffectiveWeightAt25m() {
-        // Neural distance curve at 25m (steepened): 0.9 - (25-15)*0.02 = 0.70
-        // Extrapolation penalty at 25m: 1.0 - (25-15)/100 = 0.90
-        // Effective = 0.70 * 0.90 = 0.63 (before calQuality)
-        let curve = DepthSourceConfidence.neural(distanceM: 25.0)
-        XCTAssertEqual(curve, 0.70, accuracy: 0.02)
-        let penalty: Float = 1.0 - (25.0 - 15.0) / 100.0
-        let effective = curve * penalty
-        XCTAssertEqual(effective, 0.63, accuracy: 0.03,
-            "Neural effective weight at 25m should be reduced by extrapolation penalty")
+    func testNeuralEffectiveWeightAt20m() {
+        // Neural distance curve at 20m: 0.9 - (20-15)*0.07 = 0.55
+        // In extrapolation zone but still within hard cap
+        let curve = DepthSourceConfidence.neural(distanceM: 20.0)
+        XCTAssertEqual(curve, 0.55, accuracy: 0.02)
     }
 
-    func testNeuralEffectiveWeightAt45m() {
-        // Neural distance curve at 45m: in 40-50 bracket: 0.45 - (45-40)*0.01 = 0.40
-        // Extrapolation penalty at 45m: max(0.15, 0.85 - (45-30)/100) = 0.85 - 0.15 = 0.70
-        // Effective = 0.40 * 0.70 = 0.28
-        let curve = DepthSourceConfidence.neural(distanceM: 45.0)
-        XCTAssertEqual(curve, 0.40, accuracy: 0.02)
-        let penalty: Float = max(0.15, 0.85 - (45.0 - 30.0) / 100.0)
-        let effective = curve * penalty
-        XCTAssertEqual(effective, 0.28, accuracy: 0.03,
-            "Neural effective weight at 45m (near hard cap) should be moderate")
+    func testNeuralEffectiveWeightAt35m() {
+        // Neural distance curve at 35m: in 30-40 bracket: 0.30 - (35-30)*0.015 = 0.225
+        // Very low — near hard cap, deep in extrapolation zone
+        let curve = DepthSourceConfidence.neural(distanceM: 35.0)
+        XCTAssertEqual(curve, 0.225, accuracy: 0.02,
+            "Neural at 35m should be very low (deep extrapolation)")
     }
 
     func testNeuralBeyondHardCapEffectiveZero() {
-        // Beyond 150m hard cap, neural curve is 0 so effective weight is always 0
-        let curve = DepthSourceConfidence.neural(distanceM: 200.0)
+        // Beyond 50m hard cap, neural curve is 0 so effective weight is always 0
+        let curve = DepthSourceConfidence.neural(distanceM: 60.0)
         XCTAssertEqual(curve, 0.0, accuracy: 0.001,
-            "Neural at 200m should be zero due to hard cap")
+            "Neural at 60m should be zero due to hard cap")
     }
 }

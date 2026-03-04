@@ -47,6 +47,12 @@ enum GuidanceHint: Equatable {
     case calibrationStale     // Calibration aging — walk near objects to refresh
     case calibrationNeeded    // No calibration — neural depth uncalibrated
 
+    // Range quality hints
+    case rangeUncorroborated  // Neural-only extrapolation with no DEM/object backup
+    case demUnavailable       // DEM not producing estimates — long range degraded
+    case demDownloading       // SRTM terrain data is being downloaded
+    case terrainRangeLimited  // LST mode, range suspiciously short, DEM needs tiles
+
     // Technique hints
     case respiratoryPause     // Breathing pause detected — optimal capture window
     case readingLocked        // Reading stable for 2+ seconds — good capture
@@ -62,6 +68,10 @@ enum GuidanceHint: Equatable {
         case .gpsAcquiring:        return "GPS ACQUIRING"
         case .gpsLowAccuracy:      return "GPS LOW ACCURACY"
         case .compassInterference: return "COMPASS INTERFERENCE"
+        case .rangeUncorroborated: return "RANGE UNCORROBORATED"
+        case .demUnavailable:      return "NO TERRAIN DATA"
+        case .demDownloading:      return "DOWNLOADING TERRAIN"
+        case .terrainRangeLimited: return "DL TERRAIN TILES"
         case .calibrating:         return "CALIBRATING"
         case .calibrationStale:    return "CAL AGING — WALK CLOSE"
         case .calibrationNeeded:   return "CAL NEEDED — WALK CLOSE"
@@ -80,6 +90,10 @@ enum GuidanceHint: Equatable {
         case .lowLight:            return "sun.min"
         case .gpsAcquiring:        return "location.slash"
         case .gpsLowAccuracy:      return "location.circle"
+        case .rangeUncorroborated: return "exclamationmark.triangle.fill"
+        case .demUnavailable:      return "mountain.2"
+        case .demDownloading:      return "icloud.and.arrow.down"
+        case .terrainRangeLimited: return "square.and.arrow.down"
         case .compassInterference: return "location.north.line"
         case .calibrating:         return "sensor.fill"
         case .calibrationStale:    return "clock.arrow.circlepath"
@@ -92,7 +106,11 @@ enum GuidanceHint: Equatable {
 
     var priority: Int {
         switch self {
+        case .rangeUncorroborated: return 105
         case .excessiveMotion:     return 100
+        case .demUnavailable:      return 95
+        case .terrainRangeLimited: return 97
+        case .demDownloading:      return 45
         case .calibrationNeeded:   return 90
         case .holdSteady:          return 80
         case .braceDevice:         return 75
@@ -114,10 +132,12 @@ enum GuidanceHint: Equatable {
         case .stabilized, .readingLocked, .respiratoryPause, .calibrating:
             return .positive
         case .holdSteady, .calibrationStale, .multipleReadings,
-             .gpsLowAccuracy, .compassInterference:
+             .gpsLowAccuracy, .compassInterference, .demUnavailable,
+             .demDownloading:
             return .caution
         case .excessiveMotion, .braceDevice, .lowLight,
-             .gpsAcquiring, .calibrationNeeded:
+             .gpsAcquiring, .calibrationNeeded, .rangeUncorroborated,
+             .terrainRangeLimited:
             return .warning
         }
     }
@@ -196,6 +216,12 @@ class OperatorGuidanceEngine: ObservableObject {
     var currentRangeM: Double = 0
     var currentConfidence: Float = 0
     var ambientLightLevel: Float = 1.0  // 0 = dark, 1 = bright (from camera exposure)
+    var isNeuralUncorroborated: Bool = false  // Neural in extrapolation zone with no DEM/object
+    var isDEMAvailable: Bool = false           // Whether DEM is producing estimates
+    var isDEMDownloading: Bool = false         // SRTM tile download in progress
+    var isDEMFarField: Bool = false            // DEM producing estimates >200m
+    var isLSTMode: Bool = false                // Far-target priority (LAST TARGET)
+    var cameraPitchDegrees: Double = 0         // Camera pitch (negative = looking down)
 
     // MARK: - Update
 
@@ -381,6 +407,34 @@ class OperatorGuidanceEngine: ObservableObject {
 
         if hasGPSFix && headingAccuracy > 15 {
             hints.append(.compassInterference)
+        }
+
+        // --- Range quality hints ---
+        // Highest priority: neural extrapolation with no corroboration means
+        // the displayed range is almost certainly wrong for distant targets.
+        if isNeuralUncorroborated {
+            hints.append(.rangeUncorroborated)
+        }
+
+        // DEM unavailable: when GPS is valid but DEM still isn't producing
+        // estimates (SRTM data missing, ray-cast failing, etc.), warn the user
+        // that long-range terrain ranging is degraded.
+        if hasGPSFix && !isDEMAvailable && currentRangeM > 50 {
+            if isDEMDownloading {
+                hints.append(.demDownloading)
+            } else {
+                hints.append(.demUnavailable)
+            }
+        }
+
+        // Terrain range limited: in far-target (LST) mode, the displayed range
+        // is suspiciously short (<300m) without far-field DEM coverage.
+        // This means the DEM either has no tiles or can't reach the terrain
+        // the user is pointing at. Nudge them to download SRTM tiles.
+        // Only fires when pitch is shallow (looking toward horizon, not down).
+        if isLSTMode && hasGPSFix && currentRangeM > 20 && currentRangeM < 300
+            && !isDEMFarField && cameraPitchDegrees > -15 {
+            hints.append(.terrainRangeLimited)
         }
 
         // --- Multiple readings suggestion (long range) ---

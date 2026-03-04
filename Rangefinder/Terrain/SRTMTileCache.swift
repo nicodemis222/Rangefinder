@@ -326,6 +326,258 @@ actor SRTMTileCache {
         return fetched
     }
 
+    // MARK: - SRTM Tile Auto-Download
+
+    /// Track which tiles are currently being downloaded to avoid duplicate requests.
+    private var downloadingTiles: Set<String> = []
+
+    /// Track tiles that failed to download (don't retry until cleared).
+    private var failedTiles: Set<String> = []
+
+    /// Whether auto-download has been triggered for the current session.
+    private(set) var hasAttemptedDownload: Bool = false
+
+    /// Download an SRTM HGT tile for the given coordinate from a public source.
+    ///
+    /// Uses the USGS SRTM GL1 data via a public CDN. Files are ~26MB compressed,
+    /// stored permanently in the Documents/SRTM directory for offline use.
+    ///
+    /// Returns true if the tile was successfully downloaded and is now available.
+    @discardableResult
+    func downloadTile(for coord: CLLocationCoordinate2D) async -> Bool {
+        let key = tileKey(for: coord)
+        hasAttemptedDownload = true
+
+        // Already cached or loading
+        guard tiles[key] == nil else { return true }
+        guard !downloadingTiles.contains(key) else { return false }
+        guard !failedTiles.contains(key) else { return false }
+
+        // Already on disk?
+        if hasTileOnDisk(key: key) {
+            // loadTile will cache it
+            if loadTile(key: key) != nil {
+                return true
+            }
+        }
+
+        downloadingTiles.insert(key)
+        defer { downloadingTiles.remove(key) }
+
+        Logger.terrain.info("Downloading SRTM tile: \(key) (~26MB)")
+
+        // Try multiple sources in order of reliability:
+        // 1. USGS EarthExplorer CDN (e3 = SRTM GL1 v003)
+        // 2. OpenData AWS mirror
+        let sources = [
+            "https://e4ftl01.cr.usgs.gov/MEASURES/SRTMGL1.003/2000.02.11/\(key).SRTMGL1.hgt.zip",
+            "https://elevation-tiles-prod.s3.amazonaws.com/skadi/\(key.prefix(3))/\(key).hgt.gz",
+        ]
+
+        for sourceURL in sources {
+            if let data = await downloadAndExtract(urlString: sourceURL, key: key) {
+                // Validate
+                guard data.count == Self.expectedFileSize else {
+                    Logger.terrain.warning("Downloaded \(key) has wrong size: \(data.count)")
+                    continue
+                }
+
+                // Save to Documents/SRTM for offline use
+                if saveToDisk(data: data, key: key) {
+                    // Load into cache
+                    if loadTile(key: key) != nil {
+                        Logger.terrain.info("SRTM tile \(key) downloaded and cached")
+                        return true
+                    }
+                }
+            }
+        }
+
+        // All sources failed
+        failedTiles.insert(key)
+        Logger.terrain.warning("Failed to download SRTM tile: \(key)")
+        return false
+    }
+
+    /// Download and extract an SRTM tile from a URL (handles .zip and .gz).
+    private func downloadAndExtract(urlString: String, key: String) async -> Data? {
+        guard let url = URL(string: urlString) else { return nil }
+
+        do {
+            let (data, response) = try await URLSession.shared.data(from: url)
+
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode == 200 else {
+                let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+                Logger.terrain.debug("SRTM download HTTP \(status) from \(urlString)")
+                return nil
+            }
+
+            // Check if the data is compressed
+            if urlString.hasSuffix(".gz") {
+                // gzip decompression
+                return decompressGzip(data)
+            } else if urlString.hasSuffix(".zip") {
+                // ZIP extraction — find the .hgt file inside
+                return extractHGTFromZip(data, key: key)
+            } else {
+                // Assume raw HGT
+                return data
+            }
+        } catch {
+            Logger.terrain.debug("SRTM download error: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    /// Decompress gzip data using Foundation's built-in decompression.
+    private func decompressGzip(_ data: Data) -> Data? {
+        // Use NSData's decompression for gzip
+        do {
+            let decompressed = try (data as NSData).decompressed(using: .zlib)
+            return decompressed as Data
+        } catch {
+            // Try raw inflate (skip gzip header)
+            // gzip files have a 10-byte header, try skipping it
+            if data.count > 18 && data[0] == 0x1f && data[1] == 0x8b {
+                // Find the start of the deflate stream (after gzip header)
+                var offset = 10
+                let flags = data[3]
+                if flags & 0x04 != 0 { // FEXTRA
+                    let xlen = Int(data[10]) | (Int(data[11]) << 8)
+                    offset += 2 + xlen
+                }
+                if flags & 0x08 != 0 { // FNAME - skip null-terminated string
+                    while offset < data.count && data[offset] != 0 { offset += 1 }
+                    offset += 1
+                }
+                if flags & 0x10 != 0 { // FCOMMENT - skip null-terminated string
+                    while offset < data.count && data[offset] != 0 { offset += 1 }
+                    offset += 1
+                }
+                if flags & 0x02 != 0 { offset += 2 } // FHCRC
+
+                if offset < data.count - 8 {
+                    let deflateData = data[offset..<(data.count - 8)]
+                    do {
+                        let decompressed = try (deflateData as NSData).decompressed(using: .zlib)
+                        return decompressed as Data
+                    } catch {
+                        Logger.terrain.debug("Gzip inflate failed: \(error.localizedDescription)")
+                    }
+                }
+            }
+            Logger.terrain.debug("Gzip decompression failed: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    /// Extract the HGT file from a ZIP archive.
+    /// Uses a minimal ZIP parser (no third-party dependencies).
+    private func extractHGTFromZip(_ zipData: Data, key: String) -> Data? {
+        // Simple ZIP file parser: find local file headers, look for .hgt file
+        let targetName = "\(key).hgt"
+        var offset = 0
+
+        while offset + 30 < zipData.count {
+            // Local file header signature: PK\x03\x04
+            guard zipData[offset] == 0x50,
+                  zipData[offset + 1] == 0x4B,
+                  zipData[offset + 2] == 0x03,
+                  zipData[offset + 3] == 0x04 else {
+                break
+            }
+
+            let compressionMethod = UInt16(zipData[offset + 8]) | (UInt16(zipData[offset + 9]) << 8)
+            let compressedSize = Int(UInt32(zipData[offset + 18]) | (UInt32(zipData[offset + 19]) << 8) |
+                                     (UInt32(zipData[offset + 20]) << 16) | (UInt32(zipData[offset + 21]) << 24))
+            let uncompressedSize = Int(UInt32(zipData[offset + 22]) | (UInt32(zipData[offset + 23]) << 8) |
+                                       (UInt32(zipData[offset + 24]) << 16) | (UInt32(zipData[offset + 25]) << 24))
+            let fileNameLen = Int(UInt16(zipData[offset + 26]) | (UInt16(zipData[offset + 27]) << 8))
+            let extraLen = Int(UInt16(zipData[offset + 28]) | (UInt16(zipData[offset + 29]) << 8))
+
+            let fileNameStart = offset + 30
+            let fileNameEnd = fileNameStart + fileNameLen
+            guard fileNameEnd <= zipData.count else { break }
+
+            let fileName = String(data: zipData[fileNameStart..<fileNameEnd], encoding: .utf8) ?? ""
+            let dataStart = fileNameEnd + extraLen
+
+            if fileName.hasSuffix(".hgt") || fileName.contains(targetName) {
+                guard dataStart + compressedSize <= zipData.count else { break }
+                let fileData = zipData[dataStart..<(dataStart + compressedSize)]
+
+                if compressionMethod == 0 {
+                    // Stored (no compression)
+                    return Data(fileData)
+                } else if compressionMethod == 8 {
+                    // Deflate
+                    do {
+                        let decompressed = try (fileData as NSData).decompressed(using: .zlib)
+                        let result = decompressed as Data
+                        if result.count == uncompressedSize || result.count == Self.expectedFileSize {
+                            return result
+                        }
+                    } catch {
+                        Logger.terrain.debug("ZIP deflate failed: \(error.localizedDescription)")
+                    }
+                }
+            }
+
+            offset = dataStart + compressedSize
+        }
+
+        Logger.terrain.debug("HGT file not found in ZIP archive")
+        return nil
+    }
+
+    /// Save HGT data to Documents/SRTM directory for persistent offline access.
+    private func saveToDisk(data: Data, key: String) -> Bool {
+        guard let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return false
+        }
+
+        let srtmDir = documentsURL.appendingPathComponent("SRTM")
+
+        // Create directory if needed
+        do {
+            try FileManager.default.createDirectory(at: srtmDir, withIntermediateDirectories: true)
+        } catch {
+            Logger.terrain.error("Failed to create SRTM directory: \(error.localizedDescription)")
+            return false
+        }
+
+        let fileURL = srtmDir.appendingPathComponent("\(key).hgt")
+
+        do {
+            try data.write(to: fileURL)
+            Logger.terrain.info("Saved SRTM tile to disk: \(key) (\(data.count) bytes)")
+            return true
+        } catch {
+            Logger.terrain.error("Failed to save SRTM tile: \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    /// Check if a tile file exists on disk (without loading it).
+    private func hasTileOnDisk(key: String) -> Bool {
+        // Check bundle
+        if Bundle.main.path(forResource: key, ofType: "hgt") != nil { return true }
+
+        // Check Documents
+        let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+        if let fileURL = documentsURL?.appendingPathComponent("SRTM/\(key).hgt") {
+            return FileManager.default.fileExists(atPath: fileURL.path)
+        }
+
+        return false
+    }
+
+    /// Reset download failure tracking (e.g., when connectivity changes).
+    func resetDownloadFailures() {
+        failedTiles.removeAll()
+    }
+
     // MARK: - Cache Management
 
     /// Clear all cached tiles and EPQS results.
@@ -338,16 +590,11 @@ actor SRTMTileCache {
     func hasTile(for coord: CLLocationCoordinate2D) -> Bool {
         let key = tileKey(for: coord)
         if tiles[key] != nil { return true }
+        return hasTileOnDisk(key: key)
+    }
 
-        // Check bundle
-        if Bundle.main.path(forResource: key, ofType: "hgt") != nil { return true }
-
-        // Check Documents
-        let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
-        if let fileURL = documentsURL?.appendingPathComponent("SRTM/\(key).hgt") {
-            return FileManager.default.fileExists(atPath: fileURL.path)
-        }
-
-        return false
+    /// Get the tile key for a coordinate (exposed for download UI).
+    func tileKeyForCoordinate(_ coord: CLLocationCoordinate2D) -> String {
+        return tileKey(for: coord)
     }
 }

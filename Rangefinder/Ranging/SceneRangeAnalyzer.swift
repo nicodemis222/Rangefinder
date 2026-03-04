@@ -20,6 +20,11 @@ class SceneRangeAnalyzer {
     /// If center reads 47m (neural) but three anchors from DEM/objects
     /// read 200+m, the center is likely wrong. If anchors agree with center
     /// (+/- ratio threshold), the scene is spatially coherent.
+    ///
+    /// Special case: when ALL samples are neural-only (no DEM, no object,
+    /// no LiDAR) and all are in the extrapolation zone (>15m), the
+    /// "coherence" is meaningless — they all agree because they're all
+    /// equally wrong. Return .insufficient to signal this.
     func validateCoherence(
         center: SceneRangeSample,
         anchors: [SceneRangeSample]
@@ -30,6 +35,22 @@ class SceneRangeAnalyzer {
 
         let centerM = center.estimate.distanceMeters
         guard centerM > 0 else { return .unknown }
+
+        // Detect neural-only extrapolation: when every sample comes from
+        // neural or geometric (both unreliable in extrapolation) and all are
+        // beyond 15m, the readings are likely artifacts. No point calling
+        // them "coherent" — they're all extrapolation noise agreeing with
+        // each other.
+        let allSamples = [center] + validAnchors
+        let extrapolationLimit: Double = 15.0
+        let allNeuralExtrapolation = allSamples.allSatisfy { sample in
+            let src = sample.estimate.source
+            let dist = sample.estimate.distanceMeters
+            return (src == .neural || src == .geometric) && dist > extrapolationLimit
+        }
+        if allNeuralExtrapolation {
+            return .insufficient
+        }
 
         let threshold = Double(AppConfiguration.coherenceRatioThreshold)
         var agreeCount = 0

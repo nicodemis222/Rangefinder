@@ -152,22 +152,22 @@ final class SemanticSelectionTests: XCTestCase {
 
     // MARK: - Neural Hard Cap Integration
 
-    func testNeuralSkippedBeyond150m() {
-        // Neural readings beyond 150m should not enter the selection pool
+    func testNeuralSkippedBeyond50m() {
+        // Neural readings beyond 50m should not enter the selection pool
         // This is enforced by the hard cap check in semanticSelect
-        let confidence = DepthSourceConfidence.neural(distanceM: 160.0)
+        let confidence = DepthSourceConfidence.neural(distanceM: 60.0)
         XCTAssertEqual(confidence, 0.0, accuracy: 0.001,
-            "Neural confidence beyond 150m should be zero (hard cap)")
+            "Neural confidence beyond 50m should be zero (hard cap)")
     }
 
-    func testNeuralAcceptedBelow150m() {
-        let confidence = DepthSourceConfidence.neural(distanceM: 30.0)
-        XCTAssertGreaterThan(confidence, 0.3,
-            "Neural confidence at 30m should be substantial")
-        // Neural still has some confidence at 100m (extended curve)
-        let at100 = DepthSourceConfidence.neural(distanceM: 100.0)
-        XCTAssertGreaterThan(at100, 0.1,
-            "Neural confidence at 100m should still be nonzero (extended curve)")
+    func testNeuralAcceptedBelow50m() {
+        let confidence = DepthSourceConfidence.neural(distanceM: 20.0)
+        XCTAssertGreaterThan(confidence, 0.4,
+            "Neural confidence at 20m should be moderate")
+        // Neural still has some confidence at 40m but very low (deep extrapolation)
+        let at40 = DepthSourceConfidence.neural(distanceM: 40.0)
+        XCTAssertGreaterThan(at40, 0.1,
+            "Neural confidence at 40m should still be nonzero (within hard cap)")
     }
 
     // MARK: - Depth Source Enum Changes

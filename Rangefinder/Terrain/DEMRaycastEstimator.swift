@@ -2,23 +2,35 @@
 //  DEMRaycastEstimator.swift
 //  Rangefinder
 //
-//  Terrain-aware range estimation via DEM ray-casting.
+//  Terrain-aware range estimation via terrain visibility scanning.
 //
-//  Casts a ray from the device's GPS position + altitude using IMU
-//  pitch and true-north heading into the SRTM elevation model.
-//  Where the ray intersects the terrain surface = range to target.
+//  Scans terrain along the device heading using GPS + altitude + IMU pitch
+//  to find where the line of sight intersects the terrain surface.
 //
 //  This is the most accurate method for medium-to-long range targets
 //  on terrain (50-2000m), especially on sloped ground where the
 //  geometric ground-plane model fails catastrophically.
 //
-//  Algorithm:
+//  Algorithm (Terrain Visibility Scan — 3 strategies):
 //  1. Ray origin: GPS (lat, lon, altitude)
-//  2. Ray direction: heading (yaw) + pitch from InclinationManager
-//  3. Convert to local ENU (East-North-Up) coordinate frame
-//  4. March ray in 30m steps, querying SRTM elevation at each step
-//  5. When ray drops below terrain → bisection refinement
-//  6. Return horizontal distance to intersection
+//  2. March HORIZONTALLY along heading in 30m steps
+//  3. At each step, run three detection strategies:
+//     S1: LOS Intersection — compute LOS altitude at camera pitch, detect
+//         where it crosses below terrain. Handles direct terrain hits.
+//     S2: Viewshed Pitch Matching — find visible terrain whose elevation
+//         angle matches camera center pitch (≥200m, tight 3° tolerance cap).
+//     S3: FOV Terrain Feature Detection — find prominent terrain features
+//         (mountains/cliffs rising >50m above base) visible anywhere within
+//         the camera's vertical FOV (±15° from center pitch). This catches
+//         mountains in the upper frame when center pitch hits flat ground.
+//  4. Select best: terrain feature > far viewshed > far LOS > near LOS
+//
+//  KEY IMPROVEMENT over simple ray march:
+//  The old approach cast a 3D ray at the pitch angle. On flat terrain at
+//  negative pitch, the ray would go underground at ~eyeHeight/tan(pitch)
+//  (e.g. 14m at -7.9°) and NEVER re-emerge — missing mountains at 1600m.
+//  The new horizontal march + viewshed approach decouples the march direction
+//  from the pitch angle, finding ALL visible terrain intersections.
 //
 
 import Foundation
@@ -66,7 +78,7 @@ class DEMRaycastEstimator {
     /// Minimum time between DEM queries (seconds).
     let queryInterval: CFAbsoluteTime = 0.5  // 2 Hz max
 
-    /// Vertical accuracy for current estimate (set in estimate(), used in marchRay()).
+    /// Vertical accuracy for current estimate (set in estimate(), used in terrainScan()).
     private var currentVerticalAccuracy: Float = -1
 
     // MARK: - Init
@@ -106,13 +118,11 @@ class DEMRaycastEstimator {
         }
 
         // Allow rays from steep downward to moderately upward.
-        // Looking UP at mountains is valid — the ray marches forward and upward
-        // until it intersects the rising terrain slope. The ray math handles this
-        // correctly: dUp becomes positive for upward pitch, and the ray intersects
-        // the mountain when terrain elevation exceeds ray altitude.
+        // Looking UP at mountains is valid — the terrain scan marches forward
+        // and finds terrain whose elevation angle matches the camera pitch.
         // Only reject rays pointing steeply upward (>30°) where hitting terrain
         // is unlikely (aiming at sky). Level rays (0°) are fine — if terrain
-        // rises ahead (mountain), the ray will intersect it; if not, marchRay
+        // rises ahead (mountain), the viewshed will find it; if not, the scan
         // returns nil naturally after maxRayDistance.
         let pitchDegrees = pitchRadians * 180.0 / .pi
         guard pitchDegrees < 30.0 else { return nil }  // >30° above horizontal: aiming at sky
@@ -120,51 +130,50 @@ class DEMRaycastEstimator {
         // Need valid GPS
         guard horizontalAccuracy > 0, horizontalAccuracy < 100 else { return nil }
 
-        // Store vertical accuracy for confidence computation in marchRay
+        // Store vertical accuracy for confidence computation in terrainScan
         currentVerticalAccuracy = Float(verticalAccuracy)
 
-        // Compute ray direction in ENU (East-North-Up) frame
-        let pitchBelowHorizontal = -pitchRadians  // positive angle below horizon
+        // Heading in radians for horizontal march direction
         let headingRad = headingDegrees * .pi / 180.0
 
-        // Horizontal distance per unit ray length
-        let cosPitch = cos(pitchBelowHorizontal)
-        let sinPitch = sin(pitchBelowHorizontal)
+        // Horizontal march direction components (no pitch — march along ground)
+        let dEast = sin(headingRad)    // per horizontal meter
+        let dNorth = cos(headingRad)   // per horizontal meter
 
-        // Ray direction components in ENU:
-        // East  = sin(heading) * cos(pitch)
-        // North = cos(heading) * cos(pitch)
-        // Up    = -sin(pitch)  (ray goes down)
-        let dEast = sin(headingRad) * cosPitch
-        let dNorth = cos(headingRad) * cosPitch
-        let dUp = -sinPitch
-
-        // Pre-fetch elevation corridor if no SRTM tile is available.
-        // Without this, each of the ~66 ray march steps would make an individual
-        // HTTP request to USGS EPQS, taking 15-30 seconds total. Pre-fetching
-        // grabs all unique grid points in parallel (~20 concurrent requests)
-        // and caches them so the ray march hits only local cache.
+        // Ensure SRTM tile is available. Without it, each scan step requires
+        // an individual EPQS HTTP request (slow, US-only, needs connectivity).
+        // SRTM tiles provide instant elevation lookups for the entire corridor.
         if await !tileCache.hasTile(for: coordinate) {
-            let fetchCount = await tileCache.prefetchCorridor(
-                origin: coordinate,
-                dEast: dEast,
-                dNorth: dNorth,
-                maxDistance: maxRayDistance,
-                stepSize: stepSize
-            )
-            if fetchCount == 0 {
-                // All points were already cached — this is a heading/pitch update
-                // on the same general corridor. The ray march will use cached data.
+            // Try auto-downloading the SRTM tile (runs once, persists to disk)
+            if await !tileCache.hasAttemptedDownload {
+                let downloaded = await tileCache.downloadTile(for: coordinate)
+                if downloaded {
+                    Logger.terrain.info("DEM: SRTM tile auto-downloaded for current location")
+                }
+            }
+
+            // If still no tile, fall back to EPQS corridor pre-fetch
+            if await !tileCache.hasTile(for: coordinate) {
+                let fetchCount = await tileCache.prefetchCorridor(
+                    origin: coordinate,
+                    dEast: dEast,
+                    dNorth: dNorth,
+                    maxDistance: maxRayDistance,
+                    stepSize: stepSize
+                )
+                if fetchCount == 0 {
+                    // All points already cached — heading/pitch update
+                    // on the same general corridor. Scan will use cached data.
+                }
             }
         }
 
-        // March ray and find terrain intersection
-        let result = await marchRay(
+        // Scan terrain along heading and find intersection with line of sight
+        let result = await terrainScan(
             origin: coordinate,
             originAltitude: altitude,
-            dEast: dEast,
-            dNorth: dNorth,
-            dUp: dUp,
+            cameraPitchRadians: pitchRadians,
+            headingRad: headingRad,
             headingDeg: Float(headingDegrees),
             gpsAccuracy: Float(horizontalAccuracy)
         )
@@ -178,24 +187,33 @@ class DEMRaycastEstimator {
         return result
     }
 
-    // MARK: - Ray Marching
+    // MARK: - Terrain Visibility Scan
 
-    /// March the ray through the terrain, checking elevation at each step.
+    /// Scan terrain along the heading using three complementary strategies:
     ///
-    /// KEY DESIGN: We look for the FARTHEST significant terrain intersection, not
-    /// the first. When the user is looking at distant mountains over nearby flat
-    /// ground, the ray may graze flat terrain 30-50m ahead before hitting the
-    /// mountain at 1600m. The old single-intersection approach would stop at 30m.
+    /// **Strategy 1: Line-of-Sight (LOS) Intersection**
+    /// March HORIZONTALLY along heading. At each step, compute the LOS altitude
+    /// (observer + d × tan(pitch)) and compare to terrain. Detect transitions
+    /// where LOS crosses below terrain.
     ///
-    /// We detect "significant" terrain by tracking elevation gain. A mountain
-    /// intersection (terrain rising 50+ meters above the ray's starting plane)
-    /// always wins over a flat-ground graze.
-    private func marchRay(
+    /// **Strategy 2: Viewshed Pitch Matching (≥200m, tight tolerance)**
+    /// Find visible terrain whose elevation angle matches camera center pitch.
+    /// Tolerance capped at 3° to prevent flat-ground false matches (the old
+    /// uncapped tolerance produced 131-164 yard false readings on flat desert).
+    ///
+    /// **Strategy 3: FOV Terrain Feature Detection**
+    /// Find prominent terrain features (>50m rise above base level) whose
+    /// elevation angle falls within the camera's vertical FOV (±15° from center).
+    /// This is the KEY strategy for mountain ranging: when the camera center
+    /// pitch (-5°) hits flat ground at 21m, mountains visible in the upper
+    /// part of the frame (at +5° to +10° elevation angle) are still detected.
+    ///
+    /// **Selection:** terrain feature > far viewshed > far LOS > near LOS.
+    private func terrainScan(
         origin: CLLocationCoordinate2D,
         originAltitude: Double,
-        dEast: Double,
-        dNorth: Double,
-        dUp: Double,
+        cameraPitchRadians: Double,
+        headingRad: Double,
         headingDeg: Float,
         gpsAccuracy: Float
     ) async -> DEMRaycastEstimate? {
@@ -208,121 +226,234 @@ class DEMRaycastEstimator {
 
         // --- ALTITUDE CORRECTION ---
         // GPS/barometric altitude can be 5-30m off from SRTM terrain level.
-        // If the observer appears to be below or at SRTM terrain, the ray
+        // If the observer appears to be below or at SRTM terrain, the LOS
         // immediately detects a false intersection. Fix: query terrain at
         // origin and ensure we start at least 2m above it (eye height).
         var effectiveAltitude = originAltitude
         if let originTerrainElev = await tileCache.elevation(at: origin) {
             let aboveTerrain = originAltitude - originTerrainElev
             if aboveTerrain < 2.0 {
-                // Observer altitude is at or below SRTM terrain — altitude error.
-                // Snap to terrain + 2m eye height.
                 effectiveAltitude = originTerrainElev + 2.0
                 Logger.terrain.debug("DEM altitude correction: GPS=\(String(format: "%.1f", originAltitude))m SRTM=\(String(format: "%.1f", originTerrainElev))m → using \(String(format: "%.1f", effectiveAltitude))m")
             }
         }
 
-        var prevAboveTerrain = true
-        var prevT: Float = 0
+        // Horizontal march direction (no pitch component — march along ground)
+        let dEast = sin(headingRad)    // per horizontal meter
+        let dNorth = cos(headingRad)   // per horizontal meter
+
+        // LOS altitude: observer_alt + d * tan(pitch)
+        // tan(pitch) is negative when looking down, positive when looking up
+        let tanPitch = tan(cameraPitchRadians)
+
+        // Camera pitch in degrees for viewshed matching
+        let cameraPitchDeg = cameraPitchRadians * 180.0 / .pi
+
         let numSteps = Int(maxRayDistance / stepSize)
 
-        // Track the best (farthest significant) intersection
-        var bestIntersection: (distance: Float, elevation: Double, confidence: Float)?
+        // --- Strategy 1: LOS intersection tracking ---
+        var prevLOSAbove = true
+        var prevD: Float = 0
+        var nearFieldHit: (distance: Float, elevation: Double, confidence: Float)?   // <100m
+        var farFieldHit: (distance: Float, elevation: Double, confidence: Float)?    // >=100m
 
-        // Track terrain along the ray for significance detection
-        let originTerrainBase = await tileCache.elevation(at: origin) ?? effectiveAltitude
+        // --- Strategy 2: Viewshed pitch matching (tightened tolerance) ---
+        var maxElevAngle: Double = -90.0   // Viewshed horizon (nothing visible yet)
+        var bestViewshedMatch: (distance: Float, elevation: Double, angleDiff: Double, confidence: Float)?
+
+        // --- Strategy 3: FOV-aware terrain feature detection ---
+        // The camera has a vertical FOV of ~30° (±15° from center). Mountains
+        // visible in the upper part of the frame may have a very different
+        // elevation angle than the center pitch. Strategy 3 finds prominent
+        // terrain features (>50m rise) anywhere within the camera FOV.
+        let halfFOVDeg: Double = 15.0   // Half of camera vertical FOV
+        let fovMinPitch = cameraPitchDeg - halfFOVDeg
+        let fovMaxPitch = cameraPitchDeg + halfFOVDeg
+        var baseTerrainElev: Double?     // Ground level near observer
+        var bestTerrainFeature: (distance: Float, elevation: Double, elevAngle: Double, confidence: Float)?
 
         for step in 1...numSteps {
-            let t = Float(step) * stepSize
-            let horizontalDist = Double(t)
+            let d = Float(step) * stepSize
+            let horizontalDist = Double(d)
 
-            // Position along ray in meters (ENU)
-            let eastM = dEast * horizontalDist
-            let northM = dNorth * horizontalDist
-            let upM = dUp * horizontalDist
-
-            // Convert ENU offset to lat/lon
-            let lat = origin.latitude + northM / metersPerDegLat
-            let lon = origin.longitude + eastM / metersPerDegLon
-            let rayAlt = effectiveAltitude + upM
+            // Horizontal position along heading
+            let lat = origin.latitude + (dNorth * horizontalDist) / metersPerDegLat
+            let lon = origin.longitude + (dEast * horizontalDist) / metersPerDegLon
+            let coord = CLLocationCoordinate2D(latitude: lat, longitude: lon)
 
             // Query terrain elevation
-            let coord = CLLocationCoordinate2D(latitude: lat, longitude: lon)
             guard let terrainElev = await tileCache.elevation(at: coord) else {
                 continue  // No data at this point, keep marching
             }
 
-            let isAboveTerrain = rayAlt > terrainElev
+            // Establish base terrain level from early readings (first 90m)
+            if baseTerrainElev == nil && d <= 90.0 {
+                baseTerrainElev = terrainElev
+            }
 
-            if !isAboveTerrain && prevAboveTerrain && t >= minDistance {
-                // Ray crossed below terrain between prevT and t
+            // ===== STRATEGY 1: LOS Intersection =====
+            // Line-of-sight altitude at this horizontal distance
+            let losAlt = effectiveAltitude + horizontalDist * tanPitch
+
+            let isLOSAbove = losAlt > terrainElev
+
+            if !isLOSAbove && prevLOSAbove && d >= minDistance {
+                // LOS crossed below terrain between prevD and d
                 // Bisection refinement for precision
-                let refinedResult = await bisectionRefine(
+                let refined = await bisectionRefineLOS(
                     origin: origin,
                     originAltitude: effectiveAltitude,
                     dEast: dEast,
                     dNorth: dNorth,
-                    dUp: dUp,
-                    tLow: prevT,
-                    tHigh: t,
+                    tanPitch: tanPitch,
+                    dLow: prevD,
+                    dHigh: d,
                     metersPerDegLat: metersPerDegLat,
                     metersPerDegLon: metersPerDegLon
                 )
 
-                let finalDist = refinedResult.distance
-                let finalElev = refinedResult.elevation
-
-                // Compute confidence
                 let confidence = computeConfidence(
-                    distance: finalDist,
+                    distance: refined.distance,
                     gpsAccuracy: gpsAccuracy,
                     headingAccuracy: 5.0,
                     verticalAccuracy: currentVerticalAccuracy
                 )
 
-                guard confidence > 0.05 else {
-                    prevAboveTerrain = isAboveTerrain
-                    prevT = t
-                    continue
-                }
-
-                // Is this a "significant" terrain feature?
-                // Terrain that rises well above the observer's base elevation
-                // (mountains, cliffs) is more significant than flat ground grazes.
-                let terrainRise = finalElev - originTerrainBase
-                let isSignificantTerrain = terrainRise > 30.0  // 30m+ above origin = mountain/cliff
-
-                if let existing = bestIntersection {
-                    // Prefer significant terrain over flat ground
-                    let existingRise = existing.elevation - originTerrainBase
-                    let existingSignificant = existingRise > 30.0
-
-                    if isSignificantTerrain && !existingSignificant {
-                        // New hit is a mountain, old was flat ground → replace
-                        bestIntersection = (finalDist, finalElev, confidence)
-                    } else if isSignificantTerrain && existingSignificant {
-                        // Both significant → keep the farther one (user is looking at distant mountain)
-                        if finalDist > existing.distance {
-                            bestIntersection = (finalDist, finalElev, confidence)
+                if confidence > 0.05 {
+                    if refined.distance >= 100.0 {
+                        // Far-field: prefer the farthest intersection
+                        if let existing = farFieldHit {
+                            if refined.distance > existing.distance {
+                                farFieldHit = (refined.distance, refined.elevation, confidence)
+                            }
+                        } else {
+                            farFieldHit = (refined.distance, refined.elevation, confidence)
                         }
+                    } else if nearFieldHit == nil {
+                        // Near-field: keep only the first (closest flat-ground hit)
+                        nearFieldHit = (refined.distance, refined.elevation, confidence)
                     }
-                    // If new hit is flat ground and old is mountain → keep mountain
-                    // If both flat ground → keep first one
-                } else {
-                    bestIntersection = (finalDist, finalElev, confidence)
                 }
             }
 
-            prevAboveTerrain = isAboveTerrain
-            prevT = t
+            prevLOSAbove = isLOSAbove
+            prevD = d
+
+            // ===== Shared: elevation angle + visibility =====
+            let elevAngleRad = atan2(terrainElev - effectiveAltitude, horizontalDist)
+            let elevAngleDeg = elevAngleRad * 180.0 / .pi
+
+            let isVisible = elevAngleDeg >= maxElevAngle
+            if isVisible {
+                maxElevAngle = elevAngleDeg
+            }
+
+            // ===== STRATEGY 2: Viewshed Pitch Matching (tightened) =====
+            // Only at ≥200m (close range is handled by LiDAR/geometric).
+            // Cap SRTM tolerance at 3° to prevent flat-ground false matches.
+            if isVisible && d >= 200.0 {
+                let angleDiff = abs(elevAngleDeg - cameraPitchDeg)
+
+                let srtmToleranceDeg = atan2(10.0, horizontalDist) * 180.0 / .pi
+                let cappedSrtmTolerance = min(srtmToleranceDeg, 3.0)
+                let matchTolerance = max(cappedSrtmTolerance + 0.5, 1.0)
+
+                if angleDiff < matchTolerance {
+                    let confidence = computeConfidence(
+                        distance: d,
+                        gpsAccuracy: gpsAccuracy,
+                        headingAccuracy: 5.0,
+                        verticalAccuracy: currentVerticalAccuracy
+                    )
+
+                    if confidence > 0.05 {
+                        if let existing = bestViewshedMatch {
+                            let isFarther = d > existing.distance + stepSize
+                            let isTighterMatch = d >= existing.distance - stepSize && angleDiff < existing.angleDiff
+                            if isFarther || isTighterMatch {
+                                bestViewshedMatch = (d, terrainElev, angleDiff, confidence)
+                            }
+                        } else {
+                            bestViewshedMatch = (d, terrainElev, angleDiff, confidence)
+                        }
+                    }
+                }
+            }
+
+            // ===== STRATEGY 3: FOV Terrain Feature Detection =====
+            // Find prominent terrain features (mountains/cliffs) visible within
+            // the camera's vertical FOV. The camera center pitch may be looking
+            // at flat ground while mountains are visible in the upper frame.
+            //
+            // Conditions:
+            // - ≥200m (skip near-field)
+            // - Terrain has risen ≥50m above base level (real feature, not flat)
+            // - Elevation angle is within camera FOV bounds
+            // - Terrain is visible (not occluded by closer terrain)
+            if isVisible && d >= 200.0, let base = baseTerrainElev {
+                let terrainRise = terrainElev - base
+                let isFeature = terrainRise > 50.0
+                let isInFOV = elevAngleDeg >= fovMinPitch && elevAngleDeg <= fovMaxPitch
+
+                if isFeature && isInFOV {
+                    let confidence = computeConfidence(
+                        distance: d,
+                        gpsAccuracy: gpsAccuracy,
+                        headingAccuracy: 5.0,
+                        verticalAccuracy: currentVerticalAccuracy
+                    )
+
+                    if confidence > 0.05 {
+                        // Prefer the farthest feature still within camera FOV.
+                        // Mountains extend across the FOV; the farthest visible
+                        // point on the cliff face is the best range estimate.
+                        if let existing = bestTerrainFeature {
+                            if d > existing.distance {
+                                bestTerrainFeature = (d, terrainElev, elevAngleDeg, confidence)
+                            }
+                        } else {
+                            bestTerrainFeature = (d, terrainElev, elevAngleDeg, confidence)
+                        }
+                    }
+                }
+            }
         }
 
-        // Return the best intersection found
-        guard let best = bestIntersection else {
-            return nil  // No intersection within maxRayDistance
+        // ===== RESULT SELECTION =====
+        // Priority: terrain feature > far-field viewshed > far-field LOS > near-field
+        //
+        // Strategy 3 (terrain feature) wins because it handles the critical case
+        // where the camera center pitch hits flat ground but mountains are visible
+        // in the upper frame — the most common far-ranging scenario.
+        let result: (distance: Float, elevation: Double, confidence: Float)?
+
+        if let feature = bestTerrainFeature {
+            // FOV terrain feature: mountain/cliff detected within camera FOV
+            result = (feature.distance, feature.elevation, feature.confidence)
+            Logger.terrain.debug("DEM terrain scan: using FOV terrain feature at \(String(format: "%.1f", feature.distance))m (elev angle=\(String(format: "%.1f", feature.elevAngle))° rise=\(String(format: "%.0f", feature.elevation - (baseTerrainElev ?? 0)))m)")
+        } else if let viewshed = bestViewshedMatch, viewshed.distance >= 200.0 {
+            // Far-field viewshed match: pitch-matched terrain at distance
+            result = (viewshed.distance, viewshed.elevation, viewshed.confidence)
+            Logger.terrain.debug("DEM terrain scan: using viewshed match at \(String(format: "%.1f", viewshed.distance))m (angle diff=\(String(format: "%.2f", viewshed.angleDiff))°)")
+        } else if let far = farFieldHit {
+            // Far-field LOS intersection: standard terrain intersection
+            result = far
+            Logger.terrain.debug("DEM terrain scan: using far-field LOS at \(String(format: "%.1f", far.distance))m")
+        } else if let viewshed = bestViewshedMatch {
+            // Near-field viewshed match (200m+ after tightening)
+            result = (viewshed.distance, viewshed.elevation, viewshed.confidence)
+            Logger.terrain.debug("DEM terrain scan: using near-field viewshed at \(String(format: "%.1f", viewshed.distance))m")
+        } else if let near = nearFieldHit {
+            // Near-field LOS: flat ground graze (only result available)
+            result = near
+            Logger.terrain.debug("DEM terrain scan: using near-field LOS at \(String(format: "%.1f", near.distance))m")
+        } else {
+            return nil
         }
 
-        // Compute hit coordinate from the best intersection
+        guard let best = result else { return nil }
+
+        // Compute hit coordinate
         let hitLat = origin.latitude + (dNorth * Double(best.distance)) / metersPerDegLat
         let hitLon = origin.longitude + (dEast * Double(best.distance)) / metersPerDegLon
         let hitCoord = CLLocationCoordinate2D(latitude: hitLat, longitude: hitLon)
@@ -336,7 +467,7 @@ class DEMRaycastEstimator {
             hitCoordinate: hitCoord
         )
 
-        Logger.terrain.debug("DEM raycast: \(String(format: "%.1f", best.distance))m heading=\(String(format: "%.1f", headingDeg))° terrainElev=\(String(format: "%.1f", best.elevation))m conf=\(String(format: "%.2f", best.confidence))")
+        Logger.terrain.debug("DEM terrain scan: \(String(format: "%.1f", best.distance))m heading=\(String(format: "%.1f", headingDeg))° terrainElev=\(String(format: "%.1f", best.elevation))m conf=\(String(format: "%.2f", best.confidence))")
 
         return estimate
     }
@@ -348,21 +479,22 @@ class DEMRaycastEstimator {
         let elevation: Double
     }
 
-    /// Refine the intersection point between tLow (above terrain) and tHigh (below terrain).
-    private func bisectionRefine(
+    /// Refine the LOS-terrain intersection between dLow (LOS above terrain)
+    /// and dHigh (LOS below terrain) using horizontal distance parameterization.
+    private func bisectionRefineLOS(
         origin: CLLocationCoordinate2D,
         originAltitude: Double,
         dEast: Double,
         dNorth: Double,
-        dUp: Double,
-        tLow: Float,
-        tHigh: Float,
+        tanPitch: Double,
+        dLow: Float,
+        dHigh: Float,
         metersPerDegLat: Double,
         metersPerDegLon: Double
     ) async -> RefinementResult {
 
-        var lo = tLow
-        var hi = tHigh
+        var lo = dLow
+        var hi = dHigh
         var lastElev = 0.0
 
         for _ in 0..<bisectionIterations {
@@ -371,19 +503,18 @@ class DEMRaycastEstimator {
 
             let eastM = dEast * horizontalDist
             let northM = dNorth * horizontalDist
-            let upM = dUp * horizontalDist
+            let losAlt = originAltitude + horizontalDist * tanPitch
 
             let lat = origin.latitude + northM / metersPerDegLat
             let lon = origin.longitude + eastM / metersPerDegLon
-            let rayAlt = originAltitude + upM
 
             let coord = CLLocationCoordinate2D(latitude: lat, longitude: lon)
             if let terrainElev = await tileCache.elevation(at: coord) {
                 lastElev = terrainElev
-                if rayAlt > terrainElev {
-                    lo = mid  // Still above terrain
+                if losAlt > terrainElev {
+                    lo = mid  // LOS still above terrain
                 } else {
-                    hi = mid  // Below terrain
+                    hi = mid  // LOS below terrain
                 }
             } else {
                 // No data — assume intersection is closer to last known point

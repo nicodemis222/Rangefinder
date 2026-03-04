@@ -91,6 +91,12 @@ class UnifiedDepthField: ObservableObject {
     /// Updated every frame; contains near/far peak distances and cluster fractions.
     @Published var latestBimodalAnalysis: BimodalAnalysis = .notBimodal
 
+    /// True when the primary reading is neural in extrapolation zone (>15m)
+    /// with NO corroborating source (DEM, object detection). The reading is
+    /// likely an extrapolation artifact — the neural model returns plausible-
+    /// looking values (e.g. 37m) for targets actually at 1000m+.
+    @Published var isNeuralUncorroborated: Bool = false
+
     // MARK: - Latest Depth Maps (updated by pipeline)
 
     private var latestLiDARDepthMap: CVPixelBuffer?
@@ -342,7 +348,7 @@ class UnifiedDepthField: ObservableObject {
                     zoomPenalty = max(0.7, 1.0 - (zoom - 15.0) * 0.03)  // 1.0 → 0.7 at 25x
                 }
 
-                // Hard cap: skip neural beyond 50m
+                // Hard cap: skip neural beyond neuralHardCapMeters (50m)
                 if calibratedDepth > 0.1 && calibratedDepth <= AppConfiguration.neuralHardCapMeters {
                     let calAge = calibrator.calibrationAge(currentTimestamp: timestamp)
                     let calQuality = DepthSourceConfidence.calibrationQuality(
@@ -460,50 +466,73 @@ class UnifiedDepthField: ObservableObject {
             Logger.depth.info("Semantic: foreground occluder detected — LiDAR \(String(format: "%.1f", lidarEntry.depth))m skipped, bimodal nearPeak=\(String(format: "%.1f", bimodal.nearPeakM))m farPeak=\(String(format: "%.1f", bimodal.farPeakM))m demAgrees=\(bimodal.demAgreesWithFar)")
         }
 
-        // 2. Object detection (known-size at crosshair, authoritative)
+        // --- DEM threshold ---
+        // When bimodal analysis confirms DEM agrees with the far peak,
+        // relax the weight threshold from 0.15 → 0.01 (bimodal provides
+        // independent corroboration, so mediocre GPS/heading is acceptable).
+        let demThreshold: Float = bimodal.demAgreesWithFar ? 0.01 : 0.15
+        if bimodal.demAgreesWithFar, demThreshold < 0.15, frameCount % 60 == 1 {
+            Logger.depth.info("Semantic: DEM threshold relaxed 0.15→0.01 (bimodal demAgreesWithFar, farPeak=\(String(format: "%.0f", bimodal.farPeakM))m)")
+        }
+
+        // 2a. Object detection — in NEAR mode, object wins outright.
+        //     In FAR (LST) mode, defer to DEM first: the user explicitly
+        //     wants the farthest credible reading, not a mid-ground object.
         if primaryEntry == nil, hasObjectAtCrosshair,
-           let objEntry = entries.first(where: { $0.source == .objectSize }) {
+           let objEntry = entries.first(where: { $0.source == .objectSize }),
+           targetPriority != .far {
             decision = .objectPrimary
             primaryEntry = objEntry
             // Background: DEM if available
             backgroundEntry = entries.first(where: { $0.source == .demRaycast && $0.weight > 0.01 })
         }
 
-        // 3. DEM (terrain target, far-target priority, no object)
-        //    When bimodal analysis confirms DEM agrees with the far peak,
-        //    relax the weight threshold from 0.15 → 0.01 (bimodal provides
-        //    independent corroboration, so mediocre GPS/heading is acceptable).
-        let demThreshold: Float = bimodal.demAgreesWithFar ? 0.01 : 0.15
-        if bimodal.demAgreesWithFar, demThreshold < 0.15, frameCount % 60 == 1 {
-            Logger.depth.info("Semantic: DEM threshold relaxed 0.15→0.01 (bimodal demAgreesWithFar, farPeak=\(String(format: "%.0f", bimodal.farPeakM))m)")
-        }
+        // 3. DEM (terrain target — in far mode, DEM beats object detection)
+        //
+        //    In far-target (LST) mode, DEM evaluates even when object is at
+        //    crosshair. The user chose "LAST TARGET" to see past foreground
+        //    objects to distant terrain. Without this, buildings at 90m block
+        //    mountain terrain at 1500m from ever being reported.
+        //
+        //    In near mode, still requires !hasObjectAtCrosshair (object wins).
         if primaryEntry == nil,
            let demEntry = entries.first(where: { $0.source == .demRaycast }),
            demEntry.weight > demThreshold,
-           !hasObjectAtCrosshair,
-           targetPriority == .far {
+           (targetPriority == .far || !hasObjectAtCrosshair) {
             decision = .demPrimary
             primaryEntry = demEntry
             // Background: prefer LiDAR when foreground occluder was detected
             // (shows "BG LIDAR 3m" giving the user foreground context),
-            // otherwise fall back to neural or geometric.
+            // otherwise fall back to object, neural, or geometric.
             if let lidarEntry = entries.first(where: { $0.source == .lidar && $0.weight > 0.01 }),
                isForegroundOccluder(lidarDepth: lidarEntry.depth, bimodal: bimodal) {
                 backgroundEntry = lidarEntry
+            } else if hasObjectAtCrosshair,
+                      let objEntry = entries.first(where: { $0.source == .objectSize }) {
+                // In LST mode, show the object detection as background context
+                backgroundEntry = objEntry
             } else {
                 backgroundEntry = entries.first(where: { $0.source == .neural && $0.weight > 0.01 })
                     ?? entries.first(where: { $0.source == .geometric && $0.weight > 0.01 })
             }
         }
 
-        // 3b. DEM even in near mode if no object and DEM is available
+        // 3b. Object detection fallback — in far mode, if DEM wasn't available,
+        //     object detection is still better than neural/geometric.
+        if primaryEntry == nil, hasObjectAtCrosshair,
+           let objEntry = entries.first(where: { $0.source == .objectSize }) {
+            decision = .objectPrimary
+            primaryEntry = objEntry
+            backgroundEntry = entries.first(where: { $0.source == .demRaycast && $0.weight > 0.01 })
+        }
+
+        // 3c. DEM in near mode when no object at crosshair
         if primaryEntry == nil,
            let demEntry = entries.first(where: { $0.source == .demRaycast }),
            demEntry.weight > demThreshold,
            !hasObjectAtCrosshair {
             decision = .demPrimary
             primaryEntry = demEntry
-            // Background: prefer LiDAR when foreground occluder detected
             if let lidarEntry = entries.first(where: { $0.source == .lidar && $0.weight > 0.01 }),
                isForegroundOccluder(lidarDepth: lidarEntry.depth, bimodal: bimodal) {
                 backgroundEntry = lidarEntry
@@ -540,15 +569,53 @@ class UnifiedDepthField: ObservableObject {
             if frameCount % 60 == 1 {
                 Logger.depth.warning("Semantic: NO valid sources")
             }
+            isNeuralUncorroborated = false
             return (.none, nil)
         }
 
-        let primaryConfidence = computeSemanticConfidence(entry: primary, decision: decision)
-        let primaryUncertainty = computeSemanticUncertainty(entry: primary, decision: decision)
+        // --- Neural Extrapolation Guard ---
+        //
+        // When neural wins the priority chain AND the reading is in the
+        // extrapolation zone (>15m beyond LiDAR calibration range, or geometric
+        // wins with no DEM), check for corroboration. Neural depth (DAv2) was
+        // calibrated from 0.2-8m LiDAR pairs. Beyond ~15m it's pure
+        // extrapolation — inverse-depth noise amplifies and the affine
+        // calibration drifts. A mountain at 1600 yards can produce a calibrated
+        // value of 37m that looks "reasonable" to the confidence curve.
+        //
+        // Without DEM or object detection to cross-validate, we must warn the
+        // user that this reading is unreliable. We do this by:
+        // 1. Setting isNeuralUncorroborated flag (drives guidance hint)
+        // 2. Severely reducing confidence (red dot in HUD)
+        // 3. Inflating uncertainty
+        //
+        let hasDEM = entries.contains { $0.source == .demRaycast && $0.weight > 0.01 }
+        let hasObject = entries.contains { $0.source == .objectSize && $0.weight > 0.01 }
+        let hasLiDAR = entries.contains { $0.source == .lidar && $0.weight > 0.1 }
+        let neuralExtrapolationZone: Float = 15.0  // Beyond LiDAR calibration range
+
+        let isNeuralExtrapolation = (decision == .neuralPrimary || decision == .geometricPrimary)
+            && primary.depth > neuralExtrapolationZone
+            && !hasDEM && !hasObject && !hasLiDAR
+
+        isNeuralUncorroborated = isNeuralExtrapolation
+
+        if isNeuralExtrapolation && frameCount % 30 == 1 {
+            Logger.depth.warning("Neural uncorroborated: \(String(format: "%.1f", primary.depth))m in extrapolation zone with no DEM/object/LiDAR. Reading is unreliable — likely extrapolation artifact.")
+        }
+
+        var primaryConfidence = computeSemanticConfidence(entry: primary, decision: decision)
+        var primaryUncertainty = computeSemanticUncertainty(entry: primary, decision: decision)
+
+        // Crush confidence when uncorroborated in extrapolation zone
+        if isNeuralExtrapolation {
+            primaryConfidence = min(primaryConfidence, 0.12)
+            primaryUncertainty = max(primaryUncertainty, Double(primary.depth) * 0.50)
+        }
 
         if frameCount % 60 == 1 {
             let sourceList = sourceWeights.map { "\($0.key.shortName):\(String(format: "%.2f", $0.value))" }.joined(separator: " ")
-            Logger.depth.info("Semantic: decision=\(decision.rawValue) primary=\(primary.source.shortName) \(String(format: "%.1f", primary.depth))m conf=\(String(format: "%.2f", primaryConfidence)) sources=[\(sourceList)]")
+            Logger.depth.info("Semantic: decision=\(decision.rawValue) primary=\(primary.source.shortName) \(String(format: "%.1f", primary.depth))m conf=\(String(format: "%.2f", primaryConfidence))\(isNeuralExtrapolation ? " [UNCORROBORATED]" : "") sources=[\(sourceList)]")
         }
 
         let primaryEstimate = DepthEstimate(

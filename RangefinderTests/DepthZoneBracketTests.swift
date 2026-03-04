@@ -244,27 +244,16 @@ final class DepthZoneBracketTests: XCTestCase {
         let appState = AppState()
         let overlay = appState.depthZoneOverlay
         XCTAssertFalse(overlay.isBimodal, "Default state should not be bimodal")
-        // activeZone reflects targetPriority which may be persisted — just check it's valid
-        XCTAssertTrue(overlay.activeZone == .far || overlay.activeZone == .near)
+        // Always far-target mode — engine auto-detects bimodal scenes
+        XCTAssertEqual(overlay.activeZone, .far)
         XCTAssertFalse(overlay.isActive, "No depth data in default state")
     }
 
-    func testAppStateDepthZoneOverlayReflectsPriority() {
+    func testAppStateDepthZoneOverlayAlwaysFar() {
         let appState = AppState()
-
-        // Explicitly set to far, then verify
-        appState.targetPriority = .far
-        XCTAssertEqual(appState.depthZoneOverlay.activeZone, .far)
-
-        // Switch to near
-        appState.targetPriority = .near
-        XCTAssertEqual(appState.depthZoneOverlay.activeZone, .near,
-                       "Overlay should reflect current target priority")
-
-        // Switch back to far
-        appState.targetPriority = .far
+        // Target priority is always far — no user toggle
         XCTAssertEqual(appState.depthZoneOverlay.activeZone, .far,
-                       "Overlay should update when priority changes back")
+                       "Overlay should always use far-target mode")
     }
 
     // MARK: - UnifiedDepthField BimodalAnalysis Exposure

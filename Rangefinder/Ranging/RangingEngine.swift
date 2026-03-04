@@ -510,6 +510,19 @@ class RangingEngine: ObservableObject {
 
     /// Fires DEM ray-cast at ~2 Hz max, non-blocking.
     private func scheduleDEMQuery() {
+        // Diagnostic logging: identify WHY DEM isn't running
+        if sceneRangeFrameCount % 150 == 1 {  // Every ~5 seconds at 30fps
+            if depthField.demEstimator == nil {
+                Logger.ranging.warning("DEM: estimator not initialized (SRTM data not loaded?)")
+            } else if locationManager == nil {
+                Logger.ranging.warning("DEM: locationManager not connected")
+            } else if let lm = locationManager, !lm.hasValidFix {
+                Logger.ranging.warning("DEM: no valid GPS fix (accuracy=\(String(format: "%.1f", lm.horizontalAccuracy))m)")
+            } else if depthField.latestDEMEstimate == nil && depthField.demEstimator != nil {
+                Logger.ranging.info("DEM: estimator ready, GPS valid, but no estimate yet — ray-cast may be returning nil (check heading/pitch/elevation data)")
+            }
+        }
+
         guard let demEstimator = depthField.demEstimator,
               let locationManager = locationManager,
               locationManager.hasValidFix else { return }

@@ -63,13 +63,19 @@ struct DepthSourceConfidence {
     /// continuously beyond 8m because the inverse-depth transform amplifies
     /// noise and calibration was only trained on 0.2-8m LiDAR data.
     ///
-    /// The curve extends to 150m with progressively declining confidence.
-    /// Beyond ~50m, neural is a secondary source — DEM and object detection
-    /// are preferred — but neural can still contribute useful signal out
-    /// to 150m when other sources are unavailable.
+    /// Confidence curve is aggressive about penalizing extrapolation:
+    /// - 0-8m: within calibration range, high confidence
+    /// - 8-15m: mild extrapolation, still usable
+    /// - 15-30m: moderate extrapolation, confidence drops fast
+    /// - 30-50m: heavy extrapolation, very low confidence
+    /// - >50m: hard cap (discarded by semantic selection)
+    ///
+    /// CRITICAL: At very long range (1000m+), the neural model can produce
+    /// calibrated values of 30-40m (inverse-depth compression). These look
+    /// plausible but are wildly wrong. The fast confidence drop above 15m
+    /// ensures these artifacts have very low weight.
     static func neural(distanceM: Float) -> Float {
-        // Hard cap: neural readings beyond 150m are discarded by semantic selection.
-        // Return 0.0 so even if somehow called, the weight is zero.
+        // Hard cap: neural readings beyond 50m are discarded by semantic selection.
         if distanceM > AppConfiguration.neuralHardCapMeters { return 0.0 }
 
         if distanceM < 2.0 { return 0.3 }
@@ -80,25 +86,19 @@ struct DepthSourceConfidence {
             return 0.8 + (distanceM - 5.0) * 0.033
         }
         if distanceM < 15.0 { return 0.9 }      // Close to training data — reliable
-        if distanceM < 25.0 {                    // 0.9 → 0.70 (moderate extrapolation)
-            return 0.9 - (distanceM - 15.0) * 0.02
+        if distanceM < 20.0 {                    // 0.9 → 0.55 (steep drop entering extrapolation)
+            return 0.9 - (distanceM - 15.0) * 0.07
         }
-        if distanceM < 40.0 {                    // 0.70 → 0.45 (~5× beyond training range)
-            return 0.70 - (distanceM - 25.0) * 0.0167
+        if distanceM < 30.0 {                    // 0.55 → 0.30 (extrapolation unreliable)
+            return 0.55 - (distanceM - 20.0) * 0.025
         }
-        if distanceM < 50.0 {                    // 0.45 → 0.35
-            return 0.45 - (distanceM - 40.0) * 0.01
+        if distanceM < 40.0 {                    // 0.30 → 0.15 (heavy extrapolation)
+            return 0.30 - (distanceM - 30.0) * 0.015
         }
-        if distanceM < 80.0 {                    // 0.35 → 0.25 (moderate extrapolation)
-            return 0.35 - (distanceM - 50.0) * 0.00333
+        if distanceM < 50.0 {                    // 0.15 → 0.08 (near hard cap, barely usable)
+            return 0.15 - (distanceM - 40.0) * 0.007
         }
-        if distanceM < 120.0 {                   // 0.25 → 0.15 (significant extrapolation)
-            return 0.25 - (distanceM - 80.0) * 0.0025
-        }
-        if distanceM < 150.0 {                   // 0.15 → 0.08 (extreme extrapolation, low weight)
-            return 0.15 - (distanceM - 120.0) * 0.00233
-        }
-        return 0.0                               // Beyond 150m hard cap
+        return 0.0                               // Beyond 50m hard cap
     }
 
     // MARK: - Geometric Confidence

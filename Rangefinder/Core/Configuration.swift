@@ -107,11 +107,16 @@ struct AppConfiguration {
     // MARK: - Semantic Selection
 
     /// Neural depth hard cap: readings beyond this distance are discarded.
-    /// Neural (DAv2 calibrated via LiDAR at 0.2-8m) extrapolates reasonably
-    /// to ~150m with progressively declining confidence. Beyond 150m the
-    /// inverse-depth amplification makes it unreliable — DEM and object
-    /// detection take over.
-    static let neuralHardCapMeters: Float = 150.0
+    /// Neural (DAv2 calibrated via LiDAR at 0.2-8m) extrapolates poorly
+    /// beyond ~15m (calibration range). At 50m the inverse-depth transform
+    /// amplifies noise into ±30-50% error. Beyond 50m DEM and object
+    /// detection are the only reliable sources.
+    ///
+    /// Previously 150m, but this allowed the neural model to produce
+    /// plausible-looking readings (e.g. 37m) for targets actually at
+    /// 1600 yards — the inverse-depth compression made distant mountains
+    /// look like nearby hills. Lowered to 50m to limit the damage zone.
+    static let neuralHardCapMeters: Float = 50.0
 
     // MARK: - Scene-Aware Multi-Point Ranging
 

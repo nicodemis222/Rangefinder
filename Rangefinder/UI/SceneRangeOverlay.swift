@@ -24,8 +24,9 @@ struct SceneRangeOverlay: View {
     private let pillRightInset: CGFloat = 55   // pill center X from right edge
     private let leaderEndInset: CGFloat = 100  // leader line end X from right edge
     private let minPillSpacing: CGFloat = 34   // minimum vertical gap between pills
-    private let hudSafeTop: CGFloat = 100      // avoid top HUD zone
+    private let hudSafeTop: CGFloat = 150      // avoid top HUD zone (chips + range + guidance)
     private let hudSafeBottom: CGFloat = 100   // avoid bottom HUD zone
+    private let markerSafeTop: CGFloat = 0.18  // normalized Y — suppress scene markers above this
 
     var body: some View {
         GeometryReader { geometry in
@@ -35,23 +36,27 @@ struct SceneRangeOverlay: View {
             let leaderEndX = size.width - leaderEndInset
 
             // Layer 1: Leader lines (behind everything)
+            // Only draw when scene marker is visible (outside HUD zone).
             ForEach(items, id: \.sample.id) { item in
-                LeaderLine(
-                    from: screenPosition(item.sample.screenPoint, in: size),
-                    to: CGPoint(x: leaderEndX, y: item.displayY),
-                    coherence: item.sample.coherenceStatus
-                )
+                if item.sample.screenPoint.y > markerSafeTop {
+                    LeaderLine(
+                        from: screenPosition(item.sample.screenPoint, in: size),
+                        to: CGPoint(x: leaderEndX, y: item.displayY),
+                        coherence: item.sample.coherenceStatus
+                    )
+                }
             }
 
             // Layer 2: Scene markers at actual sample points
+            // Suppressed in the top HUD zone to prevent overlap with chips/range.
             ForEach(result.anchorSamples) { sample in
-                if sample.estimate.isValid {
+                if sample.estimate.isValid, sample.screenPoint.y > markerSafeTop {
                     SceneMarker(coherence: sample.coherenceStatus)
                         .position(screenPosition(sample.screenPoint, in: size))
                 }
             }
 
-            // Center scene marker (slightly larger)
+            // Center scene marker (always visible — it's at screen center)
             if let center = result.centerSample, center.estimate.isValid {
                 SceneMarker(coherence: center.coherenceStatus, isCenter: true)
                     .position(x: size.width * 0.5, y: size.height * 0.5)
@@ -307,65 +312,146 @@ private struct AnchorRangePill: View {
 
 // MARK: - Scene Marker
 
-/// Small crosshair marker at the exact point in the scene where depth
-/// was sampled. Shows the user precisely what each anchor pill measures.
+/// High-contrast crosshair at the exact point in the scene where depth
+/// was sampled. Uses hot pink/magenta (absent from all natural outdoor
+/// scenes) with a black outline for guaranteed visibility on any background.
+///
+/// Design based on military HUD / AR overlay research:
+/// - Black outline (2px) guarantees contrast on light backgrounds
+/// - Hot pink fill guarantees contrast on dark/green/brown backgrounds
+/// - Crosshair shape (not circle) is visible at small sizes while
+///   letting the user see the scene through the center gap
+/// - Drop shadow adds separation from any background texture
 private struct SceneMarker: View {
     let coherence: CoherenceStatus
     var isCenter: Bool = false
 
-    private var ringSize: CGFloat { isCenter ? 12 : 8 }
-    private var dotSize: CGFloat { isCenter ? 3 : 2 }
-    private var lineWidth: CGFloat { isCenter ? 1.0 : 0.75 }
+    // Crosshair arm length from center
+    private var armLength: CGFloat { isCenter ? 10 : 7 }
+    // Gap around center point (lets scene show through)
+    private var centerGap: CGFloat { isCenter ? 3 : 2.5 }
+    // Stroke widths
+    private var outlineWidth: CGFloat { isCenter ? 4.0 : 3.0 }
+    private var fillWidth: CGFloat { isCenter ? 2.5 : 2.0 }
+    // Center dot
+    private var dotSize: CGFloat { isCenter ? 4 : 3 }
 
     var body: some View {
         ZStack {
-            // Outer ring
-            Circle()
-                .stroke(markerColor, lineWidth: lineWidth)
-                .frame(width: ringSize, height: ringSize)
+            // Layer 1: Black outline (guarantees contrast on light backgrounds)
+            CrosshairShape(armLength: armLength, centerGap: centerGap)
+                .stroke(Color.black.opacity(0.85), lineWidth: outlineWidth)
 
-            // Center dot
+            // Layer 2: Hot pink fill (guarantees contrast on dark/natural backgrounds)
+            CrosshairShape(armLength: armLength, centerGap: centerGap)
+                .stroke(markerColor, lineWidth: fillWidth)
+
+            // Layer 3: Center dot
             Circle()
                 .fill(markerColor)
                 .frame(width: dotSize, height: dotSize)
+                .overlay(
+                    Circle()
+                        .stroke(Color.black.opacity(0.85), lineWidth: 0.75)
+                        .frame(width: dotSize + 1.5, height: dotSize + 1.5)
+                )
         }
+        .frame(width: armLength * 2, height: armLength * 2)
+        .shadow(color: .black.opacity(0.4), radius: 2)
     }
 
+    /// Hot pink / magenta — absent from virtually all natural outdoor
+    /// scenes (foliage, sky, terrain, buildings). Coherence status
+    /// modulates brightness.
     private var markerColor: Color {
         switch coherence {
-        case .coherent: return Theme.milGreen.opacity(0.6)
-        case .inconsistent: return Theme.milAmber.opacity(0.7)
-        case .noData: return Theme.milGreenDim.opacity(0.3)
+        case .coherent:
+            // Full hot pink — #FF1493
+            return Color(red: 1.0, green: 0.08, blue: 0.58)
+        case .inconsistent:
+            // Slightly amber-shifted to match coherence warning palette
+            return Color(red: 1.0, green: 0.45, blue: 0.2)
+        case .noData:
+            // Dimmed magenta
+            return Color(red: 0.7, green: 0.05, blue: 0.4)
         }
+    }
+}
+
+/// Four-arm crosshair shape with a center gap.
+/// Each arm extends from `centerGap` to `armLength` from the center.
+private struct CrosshairShape: Shape {
+    let armLength: CGFloat
+    let centerGap: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let cx = rect.midX
+        let cy = rect.midY
+
+        var path = Path()
+
+        // Right arm
+        path.move(to: CGPoint(x: cx + centerGap, y: cy))
+        path.addLine(to: CGPoint(x: cx + armLength, y: cy))
+
+        // Left arm
+        path.move(to: CGPoint(x: cx - centerGap, y: cy))
+        path.addLine(to: CGPoint(x: cx - armLength, y: cy))
+
+        // Down arm
+        path.move(to: CGPoint(x: cx, y: cy + centerGap))
+        path.addLine(to: CGPoint(x: cx, y: cy + armLength))
+
+        // Up arm
+        path.move(to: CGPoint(x: cx, y: cy - centerGap))
+        path.addLine(to: CGPoint(x: cx, y: cy - armLength))
+
+        return path
     }
 }
 
 // MARK: - Leader Line
 
-/// Thin dashed line connecting a scene marker to its right-edge pill.
-/// Subtle enough to not obscure the camera feed, but visible enough
-/// to show which pill measures which scene point.
+/// Dashed leader line connecting a scene marker to its right-edge pill.
+/// Uses the same hot pink palette as the markers for visual continuity,
+/// with black outline for contrast on any background.
 private struct LeaderLine: View {
     let from: CGPoint
     let to: CGPoint
     let coherence: CoherenceStatus
 
     var body: some View {
-        Path { path in
-            path.move(to: from)
-            path.addLine(to: to)
+        ZStack {
+            // Black outline pass
+            Path { path in
+                path.move(to: from)
+                path.addLine(to: to)
+            }
+            .stroke(
+                Color.black.opacity(0.5),
+                style: StrokeStyle(lineWidth: 2.5, dash: [5, 4])
+            )
+
+            // Colored fill pass
+            Path { path in
+                path.move(to: from)
+                path.addLine(to: to)
+            }
+            .stroke(
+                lineColor,
+                style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])
+            )
         }
-        .stroke(
-            lineColor,
-            style: StrokeStyle(lineWidth: 0.5, dash: [3, 3])
-        )
     }
 
     private var lineColor: Color {
         switch coherence {
-        case .coherent: return Theme.milGreen.opacity(0.20)
-        case .inconsistent: return Theme.milAmber.opacity(0.25)
-        case .noData: return Theme.milGreenDim.opacity(0.10)
+        case .coherent:
+            return Color(red: 1.0, green: 0.08, blue: 0.58).opacity(0.5)
+        case .inconsistent:
+            return Color(red: 1.0, green: 0.45, blue: 0.2).opacity(0.5)
+        case .noData:
+            return Color(red: 0.7, green: 0.05, blue: 0.4).opacity(0.3)
         }
     }
 }

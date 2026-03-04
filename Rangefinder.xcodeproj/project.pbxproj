@@ -62,6 +62,7 @@
 		90A6EF2479EE121E887D16ED /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D44A863B23E4E4DC32DBC8CD /* SettingsView.swift */; };
 		911D26E8D206BC61A8F23C82 /* canyon_800m.jpg in Resources */ = {isa = PBXBuildFile; fileRef = DBBF3868575D4C6B2A1CA0CB /* canyon_800m.jpg */; };
 		93F119506593EB059C6CDFC3 /* StadiametricBracketOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7983D27AADD70F4985A94857 /* StadiametricBracketOverlay.swift */; };
+		AA2B3C4D5E6F7A8B9C0D1E2F /* TacticalMinimapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1B2C3D4E5F6A7B8C9D0E1F /* TacticalMinimapView.swift */; };
 		96BB853586A33D4E98E32C41 /* mountain_valley_500m.jpg in Resources */ = {isa = PBXBuildFile; fileRef = E523E7F3D0E4C750BB8CE977 /* mountain_valley_500m.jpg */; };
 		9E578D7B1B8C1C5338F676F5 /* HUDOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E63D3077D0F2503633E15F9 /* HUDOverlayView.swift */; };
 		9EB7BA9EB349CDA8D3D55B57 /* BackgroundRangeChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCFF0AA6847071C970917C95 /* BackgroundRangeChip.swift */; };
@@ -187,6 +188,7 @@
 		A5CD96ACC2D0CB1E55F2E04D /* SemanticSelectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticSelectionTests.swift; sourceTree = "<group>"; };
 		A64DCA77EC66AEF2DFC93FDC /* GeometricRangeEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeometricRangeEstimator.swift; sourceTree = "<group>"; };
 		A8529FBC6DE7DC4D0C6E72D5 /* RangingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RangingEngine.swift; sourceTree = "<group>"; };
+		AA1B2C3D4E5F6A7B8C9D0E1F /* TacticalMinimapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TacticalMinimapView.swift; sourceTree = "<group>"; };
 		AF8A931DD3082846A26ECCF8 /* RangefinderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RangefinderApp.swift; sourceTree = "<group>"; };
 		AFFB86EB4CA9989FDBE3E156 /* ContinuousCalibratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContinuousCalibratorTests.swift; sourceTree = "<group>"; };
 		B07A0A70C0672B16E00D2A1E /* RangeDisplayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RangeDisplayView.swift; sourceTree = "<group>"; };
@@ -400,6 +402,7 @@
 				D44A863B23E4E4DC32DBC8CD /* SettingsView.swift */,
 				91C4BD4B37EB6B213F4508E3 /* SRTMDownloadView.swift */,
 				7983D27AADD70F4985A94857 /* StadiametricBracketOverlay.swift */,
+				AA1B2C3D4E5F6A7B8C9D0E1F /* TacticalMinimapView.swift */,
 				BC3084893C947EAAAE9C12EB /* Theme.swift */,
 				19CDF20654C8AAD136617F6C /* TutorialView.swift */,
 			);
@@ -663,6 +666,7 @@
 				90A6EF2479EE121E887D16ED /* SettingsView.swift in Sources */,
 				0314308A7F42F380E86776C5 /* SniperScope_Detector.mlpackage in Sources */,
 				93F119506593EB059C6CDFC3 /* StadiametricBracketOverlay.swift in Sources */,
+				AA2B3C4D5E6F7A8B9C0D1E2F /* TacticalMinimapView.swift in Sources */,
 				1965B66355C98207E3D22979 /* Theme.swift in Sources */,
 				D0B571E09B2FB1ADEA62954A /* TutorialView.swift in Sources */,
 				4F395992745D7C910091EF03 /* UnifiedDepthField.swift in Sources */,

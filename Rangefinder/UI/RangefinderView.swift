@@ -2,21 +2,20 @@
 //  RangefinderView.swift
 //  Rangefinder
 //
-//  Main screen: camera preview + FFP reticle + tactical HUD overlays.
+//  Main screen: camera preview + scene range ladder + tactical HUD.
 //
-//  Layout (modeled on Burris Eliminator 6 / SIG Kilo HUD zones):
-//  Data lives in fixed HUD zones at top/bottom — reticle stays clear.
+//  Layout — compact single-row top bar + scene range overlay:
 //
 //    ┌──────────────────────────────────────┐
-//    │ [MAG 1x] [.308 Z100] [HDG 045°]   │
-//    │                   [ELEV +2°] [≡]   │  ← top bar chips
-//    │         ● 124 YDS  ±3              │  ← range readout (top zone)
-//    │         ▲ 1.2 MIL HIGH             │  ← holdover (amber)
-//    │      ◉ STABILIZED  ▓▓▓░            │  ← operator guidance
+//    │ [2x] [FAR] [.308] [📏][🗺] [045°+3°] [≡] │  ← single row
+//    │         ● 124 YDS  ±3              │  ← range readout
+//    │      ◉ STABILIZED  ▓▓▓░            │  ← guidance
 //    │                                      │
-//    │            ╋ reticle (CLEAR)         │  ← crosshair — unobstructed
+//    │     ◯ ─ ─ ─ ─ ─ ─ ─ [847 YDS ◯]   │  ← range ladder
+//    │          ◉ [156 YDS M ●]            │  ← center pill
+//    │   ◯ ─ ─ ─ ─ ─ ─ ─ ─ [ 52 YDS ◯]   │
 //    │                                      │
-//    │       ▓▓▓▓▓░░░ LIDAR  AI            │  ← source blend (bottom zone)
+//    │       ▓▓▓▓▓░░░ LIDAR  AI            │  ← source blend
 //    └──────────────────────────────────────┘
 //
 
@@ -26,6 +25,7 @@ struct RangefinderView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.scenePhase) private var scenePhase
     @State private var isPinching = false
+    @State private var showTerrainSheet = false
 
     var body: some View {
         ZStack {
@@ -49,18 +49,12 @@ struct RangefinderView: View {
 
             // Layer 3: HUD elements — data in fixed zones
             VStack(spacing: 0) {
-                // === TOP ZONE: chips + range + holdover ===
+                // === TOP ZONE: chips + holdover + guidance ===
                 VStack(spacing: 6) {
                     topBar
                         .padding(.horizontal, 16)
 
-                    // Range readout — primary data
-                    CrosshairRangeDisplay(
-                        range: appState.currentRange,
-                        displayUnit: appState.displayUnit
-                    )
-
-                    // Holdover — directly below range when active
+                    // Holdover — directly below top bar when active
                     if appState.ballisticsSolver.isEnabled,
                        let holdover = appState.currentHoldover,
                        holdover.isSignificant {
@@ -112,20 +106,22 @@ struct RangefinderView: View {
                 .padding(.bottom, 16)
             }
 
-            // Layer 5: Map PiP (bottom-right corner, when enabled)
-            if appState.showMapPiP,
-               appState.locationManager.hasValidFix {
+            // Layer 4: Tactical minimap (bottom-left, always-on with GPS)
+            if appState.locationManager.hasValidFix {
                 VStack {
                     Spacer()
                     HStack {
-                        Spacer()
-                        MapPiPView(
+                        TacticalMinimapView(
                             userCoordinate: appState.locationManager.coordinate,
-                            hitCoordinate: appState.demHitCoordinate,
-                            headingDegrees: appState.headingDegrees
+                            headingDegrees: appState.headingDegrees,
+                            hitCoordinate: appState.demHitCoordinate
                         )
-                        .padding(.trailing, 12)
-                        .padding(.bottom, 120)
+                        .onTapGesture {
+                            showTerrainSheet = true
+                        }
+                        .padding(.leading, 12)
+                        .padding(.bottom, 60)
+                        Spacer()
                     }
                 }
             }
@@ -150,12 +146,27 @@ struct RangefinderView: View {
                 displayUnit: $appState.displayUnit,
                 reticleConfig: $appState.reticleConfig,
                 cameraHeight: $appState.cameraHeight,
-                targetPriority: $appState.targetPriority,
                 stadiametricTargetSize: $appState.stadiametricTargetSize,
                 ballisticsSolver: appState.ballisticsSolver,
                 locationManager: appState.locationManager,
                 regionManager: appState.regionManager
             )
+        }
+        .sheet(isPresented: $showTerrainSheet) {
+            NavigationStack {
+                SRTMDownloadView(
+                    regionManager: appState.regionManager,
+                    locationManager: appState.locationManager
+                )
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("DONE") { showTerrainSheet = false }
+                            .font(.system(size: 14, weight: .bold, design: .monospaced))
+                            .foregroundColor(Theme.milGreen)
+                    }
+                }
+            }
+            .preferredColorScheme(.dark)
         }
         .onChange(of: scenePhase) { _, newPhase in
             switch newPhase {
@@ -173,145 +184,79 @@ struct RangefinderView: View {
 
     // MARK: - Top Bar
 
+    /// Single-row consolidated top bar. Labels removed — values only.
+    /// HDG + ELEV merged into one orientation chip.
+    /// STADIA and MAP collapsed to icon-only toggles.
     private var topBar: some View {
-        VStack(spacing: 4) {
-            // Row 1: Core data chips
-            HStack(spacing: 8) {
-                // Magnification indicator
-                MilHUDChip {
-                    HStack(spacing: 4) {
-                        Text("MAG")
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundColor(Theme.milGreenDim)
-                        Text(zoomText)
-                            .font(.system(size: 13, weight: .medium, design: .monospaced))
-                    }
-                }
-
-                // Target priority chip (Near/Far — tappable toggle)
-                targetPriorityChip
-
-                // Ballistics chip (only when enabled)
-                if appState.ballisticsSolver.isEnabled {
-                    ballisticsChip
-                }
-
-                // Heading chip (compass bearing)
-                if appState.locationManager.hasValidFix {
-                    MilHUDChip {
-                        HStack(spacing: 4) {
-                            Text("HDG")
-                                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                .foregroundColor(Theme.milGreenDim)
-                            Text(headingText)
-                                .font(.system(size: 13, weight: .medium, design: .monospaced))
-                        }
-                    }
-                }
-
-                Spacer()
-
-                // Elevation indicator
-                MilHUDChip {
-                    HStack(spacing: 4) {
-                        Text("ELEV")
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundColor(Theme.milGreenDim)
-                        Text(InclinationCorrector.formatAngle(appState.pitchDegrees))
-                            .font(.system(size: 13, weight: .medium, design: .monospaced))
-                    }
-                    .foregroundColor(pitchColor)
-                }
-
-                // Settings — tactical menu icon
-                Button {
-                    appState.showSettings = true
-                } label: {
-                    Image(systemName: "line.3.horizontal")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(Theme.milGreenDim)
-                        .frame(width: 34, height: 34)
-                        .background(
-                            RoundedRectangle(cornerRadius: Theme.hudCornerRadius)
-                                .fill(Theme.panelBackground)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: Theme.hudCornerRadius)
-                                        .stroke(Theme.hudBorder.opacity(0.6), lineWidth: Theme.borderWidth)
-                                )
-                        )
-                }
+        HStack(spacing: 6) {
+            // Zoom (label-free)
+            MilHUDChip {
+                Text(zoomText)
+                    .font(.system(size: 13, weight: .bold, design: .monospaced))
             }
 
-            // Row 2: Mode toggles (only when modes are available)
-            if appState.isStadiametricMode || appState.showMapPiP || appState.locationManager.hasValidFix {
-                HStack(spacing: 8) {
-                    // Stadiametric mode toggle
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            appState.toggleStadiametricMode()
-                        }
-                    } label: {
-                        MilHUDChip {
-                            HStack(spacing: 3) {
-                                Image(systemName: "ruler")
-                                    .font(.system(size: 10, weight: .medium))
-                                Text("STADIA")
-                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            }
-                            .foregroundColor(appState.isStadiametricMode ? Theme.milAmber : Theme.milGreenDim)
-                        }
-                    }
+            // Ballistics (only when enabled)
+            if appState.ballisticsSolver.isEnabled {
+                ballisticsChip
+            }
 
-                    // Map PiP toggle (only with GPS)
-                    if appState.locationManager.hasValidFix {
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                appState.showMapPiP.toggle()
-                            }
-                        } label: {
-                            MilHUDChip {
-                                HStack(spacing: 3) {
-                                    Image(systemName: "map")
-                                        .font(.system(size: 10, weight: .medium))
-                                    Text("MAP")
-                                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                }
-                                .foregroundColor(appState.showMapPiP ? Theme.milAmber : Theme.milGreenDim)
-                            }
-                        }
-                    }
-
-                    Spacer()
+            // Stadiametric mode (icon-only toggle)
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    appState.toggleStadiametricMode()
                 }
+            } label: {
+                Image(systemName: "ruler")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(appState.isStadiametricMode ? Theme.milAmber : Theme.milGreenDim.opacity(0.5))
+                    .frame(width: 28, height: 28)
+                    .background(
+                        RoundedRectangle(cornerRadius: Theme.hudCornerRadius)
+                            .fill(Theme.panelBackground)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: Theme.hudCornerRadius)
+                                    .stroke(
+                                        appState.isStadiametricMode
+                                            ? Theme.milAmber.opacity(0.5)
+                                            : Theme.hudBorder.opacity(0.4),
+                                        lineWidth: Theme.borderWidth
+                                    )
+                            )
+                    )
             }
-        }
-    }
 
-    // MARK: - Target Priority Chip
+            Spacer()
 
-    /// Tappable chip showing Near/Far target priority mode.
-    /// Shows a bimodal indicator when foreground occluders are detected.
-    private var targetPriorityChip: some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                appState.targetPriority = appState.targetPriority == .near ? .far : .near
-            }
-        } label: {
+            // Orientation: HDG + pitch combined (label-free)
             MilHUDChip {
                 HStack(spacing: 4) {
-                    // Bimodal indicator (flashes when occluder detected)
-                    if appState.depthField.isBimodal {
-                        Circle()
-                            .fill(Theme.milAmber)
-                            .frame(width: 6, height: 6)
+                    if appState.locationManager.hasValidFix {
+                        Text(headingText)
+                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                            .foregroundColor(Theme.milGreen.opacity(0.8))
                     }
-                    Text(appState.targetPriority.shortLabel)
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundColor(appState.targetPriority == .far ? Theme.milAmber : Theme.milGreenDim)
-                    Text("TGT")
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundColor(Theme.milGreenDim)
+                    Text(InclinationCorrector.formatAngle(appState.pitchDegrees))
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundColor(pitchColor)
                 }
+            }
+
+            // Settings
+            Button {
+                appState.showSettings = true
+            } label: {
+                Image(systemName: "line.3.horizontal")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(Theme.milGreenDim)
+                    .frame(width: 28, height: 28)
+                    .background(
+                        RoundedRectangle(cornerRadius: Theme.hudCornerRadius)
+                            .fill(Theme.panelBackground)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: Theme.hudCornerRadius)
+                                    .stroke(Theme.hudBorder.opacity(0.6), lineWidth: Theme.borderWidth)
+                            )
+                    )
             }
         }
     }

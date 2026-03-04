@@ -96,10 +96,11 @@ class AnchorPointSelector {
             return sqrt(dx * dx + dy * dy) > minDistFromCenter
         }
 
-        // Filter out-of-bounds
+        // Filter out-of-bounds — top 18% excluded to avoid HUD overlap,
+        // right 12% excluded to keep clear of the pill ladder column.
         candidates = candidates.filter { c in
-            c.point.x > 0.02 && c.point.x < 0.98
-                && c.point.y > 0.02 && c.point.y < 0.98
+            c.point.x > 0.02 && c.point.x < 0.88
+                && c.point.y > 0.18 && c.point.y < 0.88
         }
 
         // Apply spatial spread and rank

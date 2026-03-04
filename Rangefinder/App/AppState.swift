@@ -27,14 +27,6 @@ class AppState: ObservableObject {
     @Published var isModelsLoaded = false
     @Published var showSettings = false
     @Published var currentHoldover: HoldoverResult?
-    @Published var targetPriority: TargetPriority = .far {
-        didSet {
-            UserDefaults.standard.set(targetPriority.rawValue, forKey: "targetPriority")
-            depthField.targetPriority = targetPriority
-            // Clear outlier buffer on mode change to allow immediate transition
-            rangingEngine.clearOutlierBuffer()
-        }
-    }
     @Published var backgroundRange: RangeOutput = .none
     @Published var isStadiametricMode: Bool = false
     @Published var stadiametricTargetSize: Double = 1.8
@@ -68,7 +60,7 @@ class AppState: ObservableObject {
             crosshairDepthM: crosshairM,
             demDepthM: demEstimate?.distanceMeters ?? 0,
             hasDEM: hasDEM,
-            activeZone: targetPriority,
+            activeZone: .far,
             nearPeakM: analysis.nearPeakM,
             farPeakM: analysis.farPeakM
         )
@@ -112,14 +104,9 @@ class AppState: ObservableObject {
             cameraHeight = savedHeight
             depthField.geometricEstimator.cameraHeight = savedHeight
         }
-        if let savedPriority = UserDefaults.standard.string(forKey: "targetPriority"),
-           let priority = TargetPriority(rawValue: savedPriority) {
-            targetPriority = priority
-            depthField.targetPriority = priority
-        } else {
-            // Default to far-target mode — long-range terrain is the primary use case
-            depthField.targetPriority = .far
-        }
+        // Always use far-target mode — the engine auto-detects bimodal scenes
+        // and prioritizes DEM terrain ranging over foreground objects.
+        depthField.targetPriority = .far
         setupBindings()
     }
 
@@ -272,6 +259,16 @@ class AppState: ObservableObject {
         guidanceEngine.calibrationAge = depthField.calibrator.calibrationAge(currentTimestamp: timestamp)
         guidanceEngine.calibrationConfidence = depthField.calibrator.confidence
         guidanceEngine.calibrationSampleCount = depthField.calibrator.calibration.sampleCount
+
+        // Range quality state
+        guidanceEngine.isNeuralUncorroborated = depthField.isNeuralUncorroborated
+        guidanceEngine.isDEMAvailable = depthField.latestDEMEstimate != nil
+        guidanceEngine.isDEMDownloading = regionManager.activeDownloadRegion != nil
+
+        // Terrain coverage state for terrainRangeLimited hint
+        guidanceEngine.isDEMFarField = (depthField.latestDEMEstimate?.distanceMeters ?? 0) > 200
+        guidanceEngine.isLSTMode = true
+        guidanceEngine.cameraPitchDegrees = pitchDegrees
     }
 
     // MARK: - Lifecycle
